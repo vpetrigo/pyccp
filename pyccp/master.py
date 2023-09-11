@@ -31,6 +31,8 @@ import struct
 from pyccp import ccp
 from pyccp.logger import Logger
 
+from can import Message
+
 
 MTA0 = 0
 MTA1 = 1
@@ -47,7 +49,9 @@ class Master(ccp.CRO):
     def sendCRO(self, canID, cmd, ctr, b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0):
         """Transfer up to 6 data bytes from master to slave (ECU).
         """
-        self.transport.send(canID, cmd, ctr, b0, b1, b2, b3, b4, b5)
+        data = (cmd, ctr, b0, b1, b2, b3, b4, b5)
+        msg = Message(arbitration_id=canID, data=data)
+        self.transport.send(msg)
 
     ##
     ## Mandatory Commands.
