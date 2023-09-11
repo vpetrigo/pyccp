@@ -11,7 +11,7 @@ setup(
     author_email = 'cpu12.gems@googlemail.com',
     url = 'http://github.com/pySART/pyccp',
     packages = ['pyccp'],
-    install_requires = ['enum34', 'mako'],    # 'mock'
+    install_requires = [],    # 'mock'
     test_suite = "pyccp.tests"
 )
 
