@@ -54,7 +54,7 @@ class Master(ccp.CRO):
         """Transfer up to 6 data bytes from master to slave (ECU).
         """
         data = (cmd, ctr, b0, b1, b2, b3, b4, b5)
-        msg = Message(arbitration_id=canID, data=data)
+        msg = Message(arbitration_id=canID, data=data, is_rx=False)
         self.transport.send(msg)
 
     def get_data(self) -> Optional[can.Message]:
