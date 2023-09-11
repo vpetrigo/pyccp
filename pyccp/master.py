@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-__copyright__="""
+__copyright__ = """
     pySART - Simplified AUTOSAR-Toolkit for Python.
 
    (C) 2009-2016 by Christoph Schueler <cpu12.gems@googlemail.com>
@@ -23,60 +23,63 @@ __copyright__="""
   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 """
 
-from collections import namedtuple
+import ctypes
 import enum
+import struct
+from collections import namedtuple
 from pprint import pprint
 from typing import Optional
-import struct
-
-import can
-from pyccp import ccp
-from pyccp.logger import Logger
 
 from can import Message
 
+from pyccp import ccp
+from pyccp.logger import Logger
 
 MTA0 = 0
 MTA1 = 1
 
-class Master(ccp.CRO):
 
+class Master(ccp.CRO):
     def __init__(self, bus):
         self.slaveConnections = {}
         self.transport: can.Bus = bus
-        self.ctr = 0x00
+        self.ctr = ctypes.c_uint8(0)
         self.logger = Logger("pyccp.master")
 
     def shutdown(self):
         self.transport.shutdown()
 
-    def sendCRO(self, canID, cmd, ctr, b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0):
-        """Transfer up to 6 data bytes from master to slave (ECU).
-        """
+    def sendCRO(self, canID, cmd, ctr, b0=0, b1=0, b2=0, b3=0, b4=0, b5=0):
+        """Transfer up to 6 data bytes from master to slave (ECU)."""
         data = (cmd, ctr, b0, b1, b2, b3, b4, b5)
         msg = Message(arbitration_id=canID, data=data, is_rx=False)
         self.transport.send(msg)
+        self.ctr = ctypes.c_uint8(self.ctr.value + 1)
 
-    def get_data(self) -> Optional[can.Message]:
+    def get_data(self) -> Optional[Message]:
         return self.transport.recv()
 
     ##
     ## Mandatory Commands.
     ##
     def connect(self, canID, address):
-        h = (address & 0xff00) >> 8
-        l = address & 0x00ff
+        h = (address & 0xFF00) >> 8
+        l = address & 0x00FF
         self.sendCRO(canID, ccp.CommandCodes.CONNECT, self.ctr, l, h)
 
-    def getCCPVersion(self, canID, major = 2, minor = 1):
+    def getCCPVersion(self, canID, major=2, minor=1):
         self.sendCRO(canID, ccp.CommandCodes.GET_CCP_VERSION, self.ctr, major, minor)
 
-    def exchangeId(self, canID, b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0):
-        self.sendCRO(canID, ccp.CommandCodes.EXCHANGE_ID, self.ctr, b0, b1, b2, b3, b4, b5)
+    def exchangeId(self, canID, b0=0, b1=0, b2=0, b3=0, b4=0, b5=0):
+        self.sendCRO(
+            canID, ccp.CommandCodes.EXCHANGE_ID, self.ctr, b0, b1, b2, b3, b4, b5
+        )
 
-    def setMta(self, canID, address, addressExtension = 0x00, mta = MTA0):
+    def setMta(self, canID, address, addressExtension=0x00, mta=MTA0):
         address = struct.pack("<L", address)
-        self.sendCRO(canID, ccp.CommandCodes.SET_MTA, self.ctr, mta, addressExtension, *address)
+        self.sendCRO(
+            canID, ccp.CommandCodes.SET_MTA, self.ctr, mta, addressExtension, *address
+        )
 
     def dnload(self, canID, size, data):
         self.sendCRO(canID, ccp.CommandCodes.DNLOAD, self.ctr, size, *data)
@@ -86,22 +89,56 @@ class Master(ccp.CRO):
 
     def getDaqSize(self, canID, daqListNumber, address):
         address = struct.pack(">L", address)
-        self.sendCRO(canID, ccp.CommandCodes.GET_DAQ_SIZE, self.ctr, daqListNumber, 0x00, *address)
+        self.sendCRO(
+            canID,
+            ccp.CommandCodes.GET_DAQ_SIZE,
+            self.ctr,
+            daqListNumber,
+            0x00,
+            *address
+        )
 
     def setDaqPtr(self, canID, daqListNumber, odtNumber, elementNumber):
-        self.sendCRO(canID, ccp.CommandCodes.SET_DAQ_PTR, self.ctr, daqListNumber, odtNumber, elementNumber)
+        self.sendCRO(
+            canID,
+            ccp.CommandCodes.SET_DAQ_PTR,
+            self.ctr,
+            daqListNumber,
+            odtNumber,
+            elementNumber,
+        )
 
     def writeDaq(self, canID, elementSize, addressExtension, address):
         address = struct.pack(">L", address)
-        self.sendCRO(canID, ccp.CommandCodes.WRITE_DAQ, self.ctr, elementSize, addressExtension, *address)
+        self.sendCRO(
+            canID,
+            ccp.CommandCodes.WRITE_DAQ,
+            self.ctr,
+            elementSize,
+            addressExtension,
+            *address
+        )
 
-    def startStop(self, canID, mode, daqListNumber, lastOdtNumber, eventChannel, ratePrescaler):
+    def startStop(
+        self, canID, mode, daqListNumber, lastOdtNumber, eventChannel, ratePrescaler
+    ):
         ratePrescaler = struct.pack(">H", ratePrescaler)
-        self.sendCRO(canID, ccp.CommandCodes.START_STOP, self.ctr, mode, daqListNumber, lastOdtNumber, eventChannel, *ratePrescaler)
+        self.sendCRO(
+            canID,
+            ccp.CommandCodes.START_STOP,
+            self.ctr,
+            mode,
+            daqListNumber,
+            lastOdtNumber,
+            eventChannel,
+            *ratePrescaler
+        )
 
     def disconnect(self, canID, permanent, address):
         address = struct.pack("<H", address)
-        self.sendCRO(canID, ccp.CommandCodes.DISCONNECT, self.ctr, permanent, 0x00, *address)
+        self.sendCRO(
+            canID, ccp.CommandCodes.DISCONNECT, self.ctr, permanent, 0x00, *address
+        )
 
     ##
     ## Optional Commands.
@@ -150,4 +187,3 @@ class Master(ccp.CRO):
 
     def getSeed(self, canID):
         pass
-
