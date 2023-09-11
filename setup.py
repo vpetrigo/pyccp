@@ -12,5 +12,8 @@ setup(
     author_email='cpu12.gems@googlemail.com',
     url='http://github.com/pySART/pyccp',
     packages=['pyccp'],
-    test_suite="pyccp.tests"
+    test_suite="pyccp.tests",
+    install_requires=[
+        'python-can >=4,<5',
+    ],
 )
