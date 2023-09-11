@@ -26,8 +26,10 @@ __copyright__="""
 from collections import namedtuple
 import enum
 from pprint import pprint
+from typing import Optional
 import struct
 
+import can
 from pyccp import ccp
 from pyccp.logger import Logger
 
@@ -39,12 +41,14 @@ MTA1 = 1
 
 class Master(ccp.CRO):
 
-    def __init__(self, transport):
+    def __init__(self, bus):
         self.slaveConnections = {}
-        self.transport = transport
-        self.transport.parent = self
+        self.transport: can.Bus = bus
         self.ctr = 0x00
         self.logger = Logger("pyccp.master")
+
+    def shutdown(self):
+        self.transport.shutdown()
 
     def sendCRO(self, canID, cmd, ctr, b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0):
         """Transfer up to 6 data bytes from master to slave (ECU).
@@ -52,6 +56,9 @@ class Master(ccp.CRO):
         data = (cmd, ctr, b0, b1, b2, b3, b4, b5)
         msg = Message(arbitration_id=canID, data=data)
         self.transport.send(msg)
+
+    def get_data(self) -> Optional[can.Message]:
+        return self.transport.recv()
 
     ##
     ## Mandatory Commands.
