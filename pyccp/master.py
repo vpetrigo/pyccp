@@ -75,7 +75,7 @@ class Master(ccp.CRO):
         self.sendCRO(canID, ccp.CommandCodes.EXCHANGE_ID, self.ctr, b0, b1, b2, b3, b4, b5)
 
     def setMta(self, canID, address, addressExtension = 0x00, mta = MTA0):
-        address = struct.pack(">L", address)
+        address = struct.pack("<L", address)
         self.sendCRO(canID, ccp.CommandCodes.SET_MTA, self.ctr, mta, addressExtension, *address)
 
     def dnload(self, canID, size, data):
