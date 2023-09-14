@@ -31,7 +31,6 @@ from pprint import pprint
 from typing import Optional
 
 from can import Message
-
 from pyccp import ccp
 from pyccp.logger import Logger
 
@@ -65,34 +64,41 @@ class Master(ccp.CRO):
     def connect(self, canID, address):
         h = (address & 0xFF00) >> 8
         l = address & 0x00FF
-        self.sendCRO(canID, ccp.CommandCodes.CONNECT, self.ctr, l, h)
+        self.sendCRO(canID, ccp.CommandCodes.CONNECT, self.ctr.value, l, h)
 
     def getCCPVersion(self, canID, major=2, minor=1):
-        self.sendCRO(canID, ccp.CommandCodes.GET_CCP_VERSION, self.ctr, major, minor)
+        self.sendCRO(
+            canID, ccp.CommandCodes.GET_CCP_VERSION, self.ctr.value, major, minor
+        )
 
     def exchangeId(self, canID, b0=0, b1=0, b2=0, b3=0, b4=0, b5=0):
         self.sendCRO(
-            canID, ccp.CommandCodes.EXCHANGE_ID, self.ctr, b0, b1, b2, b3, b4, b5
+            canID, ccp.CommandCodes.EXCHANGE_ID, self.ctr.value, b0, b1, b2, b3, b4, b5
         )
 
     def setMta(self, canID, address, addressExtension=0x00, mta=MTA0):
         address = struct.pack("<L", address)
         self.sendCRO(
-            canID, ccp.CommandCodes.SET_MTA, self.ctr, mta, addressExtension, *address
+            canID,
+            ccp.CommandCodes.SET_MTA,
+            self.ctr.value,
+            mta,
+            addressExtension,
+            *address
         )
 
     def dnload(self, canID, size, data):
-        self.sendCRO(canID, ccp.CommandCodes.DNLOAD, self.ctr, size, *data)
+        self.sendCRO(canID, ccp.CommandCodes.DNLOAD, self.ctr.value, size, *data)
 
     def upload(self, canID, size):
-        self.sendCRO(canID, ccp.CommandCodes.UPLOAD, self.ctr, size)
+        self.sendCRO(canID, ccp.CommandCodes.UPLOAD, self.ctr.value, size)
 
     def getDaqSize(self, canID, daqListNumber, address):
         address = struct.pack(">L", address)
         self.sendCRO(
             canID,
             ccp.CommandCodes.GET_DAQ_SIZE,
-            self.ctr,
+            self.ctr.value,
             daqListNumber,
             0x00,
             *address
@@ -102,7 +108,7 @@ class Master(ccp.CRO):
         self.sendCRO(
             canID,
             ccp.CommandCodes.SET_DAQ_PTR,
-            self.ctr,
+            self.ctr.value,
             daqListNumber,
             odtNumber,
             elementNumber,
@@ -113,7 +119,7 @@ class Master(ccp.CRO):
         self.sendCRO(
             canID,
             ccp.CommandCodes.WRITE_DAQ,
-            self.ctr,
+            self.ctr.value,
             elementSize,
             addressExtension,
             *address
@@ -126,7 +132,7 @@ class Master(ccp.CRO):
         self.sendCRO(
             canID,
             ccp.CommandCodes.START_STOP,
-            self.ctr,
+            self.ctr.value,
             mode,
             daqListNumber,
             lastOdtNumber,
@@ -137,7 +143,12 @@ class Master(ccp.CRO):
     def disconnect(self, canID, permanent, address):
         address = struct.pack("<H", address)
         self.sendCRO(
-            canID, ccp.CommandCodes.DISCONNECT, self.ctr, permanent, 0x00, *address
+            canID,
+            ccp.CommandCodes.DISCONNECT,
+            self.ctr.value,
+            permanent,
+            0x00,
+            *address
         )
 
     ##
