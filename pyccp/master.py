@@ -181,7 +181,7 @@ class Master(ccp.CRO):
     def buildChksum(self, can_id: int, block_size: int) -> int:
         block_size = struct.pack("<L", block_size)
         return self.sendCRO(
-            can_id, ccp.CommandCodes.BUILD_CHKSUM, self.ctr, *block_size
+            can_id, ccp.CommandCodes.BUILD_CHKSUM, self.ctr.value, *block_size
         )
 
     def clearMemory(self, canID):
