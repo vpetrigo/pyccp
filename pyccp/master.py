@@ -70,11 +70,11 @@ class Master(ccp.CRO):
     def connect(self, canID, address) -> int:
         h = (address & 0xFF00) >> 8
         l = address & 0x00FF
-        return self.sendCRO(canID, ccp.CommandCodes.CONNECT, op_ctr, l, h)
+        return self.sendCRO(canID, ccp.CommandCodes.CONNECT, self.ctr.value, l, h)
 
     def getCCPVersion(self, canID, major=2, minor=1) -> int:
         return self.sendCRO(
-            canID, ccp.CommandCodes.GET_CCP_VERSION, op_ctr, major, minor
+            canID, ccp.CommandCodes.GET_CCP_VERSION, self.ctr.value, major, minor
         )
 
     def exchangeId(self, canID, b0=0, b1=0, b2=0, b3=0, b4=0, b5=0) -> int:
