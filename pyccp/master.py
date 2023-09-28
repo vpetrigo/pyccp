@@ -163,8 +163,8 @@ class Master(ccp.CRO):
     def test(self, canID):
         pass
 
-    def dnload6(self, canID):
-        pass
+    def dnload6(self, canID, data) -> int:
+        return self.sendCRO(canID, ccp.CommandCodes.DNLOAD_6, self.ctr.value, *data)
 
     def shortUp(self, canID, size, address, addressExtension):
         pass
