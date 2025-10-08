@@ -61,8 +61,8 @@ class Master(ccp.CRO):
 
         return ctr
 
-    def get_data(self) -> Optional[Message]:
-        return self.transport.recv()
+    def get_data(self, timeout=None) -> Optional[Message]:
+        return self.transport.recv(timeout=timeout)
 
     ##
     ## Mandatory Commands.
