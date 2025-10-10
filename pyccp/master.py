@@ -126,7 +126,7 @@ class Master(ccp.CRO):
             )
             return None
 
-        self.logger.debug(f"Received response: {response}")
+        self.logger.info(f"Received response: {response}")
 
         return response.data
 
