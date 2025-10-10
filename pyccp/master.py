@@ -24,13 +24,12 @@ __copyright__ = """
 """
 
 import ctypes
-import enum
 import struct
-from collections import namedtuple
-from pprint import pprint
 from typing import Optional
 
+import can
 from can import Message
+
 from pyccp import ccp
 from pyccp.logger import Logger
 
@@ -39,23 +38,23 @@ MTA1 = 1
 
 
 class Master(ccp.CRO):
-    def __init__(self, bus):
+    def __init__(self, bus: can.BusABC):
         self.slaveConnections = {}
-        self.transport: can.Bus = bus
+        self.transport = bus
         self.ctr = ctypes.c_uint8(0)
         self.logger = Logger("pyccp.master")
 
     def shutdown(self):
         self.transport.shutdown()
 
-    def sendCRO(self, canID, cmd, ctr, b0=0, b1=0, b2=0, b3=0, b4=0, b5=0) -> int:
+    def send_cro(self, can_id, cmd, ctr, b0=0, b1=0, b2=0, b3=0, b4=0, b5=0) -> int:
         """Transfer up to 6 data bytes from master to slave (ECU).
 
         :return: Operation CTR value
         :rtype: int
         """
         data = (cmd, ctr, b0, b1, b2, b3, b4, b5)
-        msg = Message(arbitration_id=canID, data=data, is_rx=False)
+        msg = Message(arbitration_id=can_id, data=data, is_rx=False)
         self.transport.send(msg)
         self.ctr = ctypes.c_uint8(self.ctr.value + 1)
 
@@ -67,143 +66,151 @@ class Master(ccp.CRO):
     ##
     ## Mandatory Commands.
     ##
-    def connect(self, canID, address) -> int:
+    def connect(self, can_id, address) -> int:
         h = (address & 0xFF00) >> 8
         l = address & 0x00FF
-        return self.sendCRO(canID, ccp.CommandCodes.CONNECT, self.ctr.value, l, h)
+        return self.send_cro(can_id, ccp.CommandCodes.CONNECT, self.ctr.value, l, h)
 
-    def getCCPVersion(self, canID, major=2, minor=1) -> int:
-        return self.sendCRO(
-            canID, ccp.CommandCodes.GET_CCP_VERSION, self.ctr.value, major, minor
+    def get_ccp_version(self, can_id, major=2, minor=1) -> int:
+        return self.send_cro(
+            can_id, ccp.CommandCodes.GET_CCP_VERSION, self.ctr.value, major, minor
         )
 
-    def exchangeId(self, canID, b0=0, b1=0, b2=0, b3=0, b4=0, b5=0) -> int:
-        return self.sendCRO(
-            canID, ccp.CommandCodes.EXCHANGE_ID, self.ctr.value, b0, b1, b2, b3, b4, b5
+    def exchange_id(self, can_id, b0=0, b1=0, b2=0, b3=0, b4=0, b5=0) -> int:
+        return self.send_cro(
+            can_id, ccp.CommandCodes.EXCHANGE_ID, self.ctr.value, b0, b1, b2, b3, b4, b5
         )
 
-    def setMta(self, canID, address, addressExtension=0x00, mta=MTA0) -> int:
+    def set_mta(self, can_id, address, address_extension=0x00, mta=MTA0) -> int:
         address = struct.pack("<L", address)
-        return self.sendCRO(
-            canID,
+        return self.send_cro(
+            can_id,
             ccp.CommandCodes.SET_MTA,
             self.ctr.value,
             mta,
-            addressExtension,
-            *address
+            address_extension,
+            *address,
         )
 
-    def dnload(self, canID, size, data) -> int:
-        return self.sendCRO(canID, ccp.CommandCodes.DNLOAD, self.ctr.value, size, *data)
+    def dnload(self, can_id, size, data) -> int:
+        return self.send_cro(
+            can_id, ccp.CommandCodes.DNLOAD, self.ctr.value, size, *data
+        )
 
-    def upload(self, canID, size) -> int:
-        return self.sendCRO(canID, ccp.CommandCodes.UPLOAD, self.ctr.value, size)
+    def upload(self, can_id, size) -> int:
+        return self.send_cro(can_id, ccp.CommandCodes.UPLOAD, self.ctr.value, size)
 
-    def getDaqSize(self, canID, daqListNumber, address) -> int:
+    def get_daq_size(self, can_id, daq_list_number, address) -> int:
         address = struct.pack(">L", address)
-        return self.sendCRO(
-            canID,
+        return self.send_cro(
+            can_id,
             ccp.CommandCodes.GET_DAQ_SIZE,
             self.ctr.value,
-            daqListNumber,
+            daq_list_number,
             0x00,
-            *address
+            *address,
         )
 
-    def setDaqPtr(self, canID, daqListNumber, odtNumber, elementNumber) -> int:
-        return self.sendCRO(
-            canID,
+    def set_daq_ptr(self, can_id, daq_list_number, odt_number, element_number) -> int:
+        return self.send_cro(
+            can_id,
             ccp.CommandCodes.SET_DAQ_PTR,
             self.ctr.value,
-            daqListNumber,
-            odtNumber,
-            elementNumber,
+            daq_list_number,
+            odt_number,
+            element_number,
         )
 
-    def writeDaq(self, canID, elementSize, addressExtension, address) -> int:
+    def write_daq(self, can_id, element_size, address_extension, address) -> int:
         address = struct.pack(">L", address)
-        return self.sendCRO(
-            canID,
+        return self.send_cro(
+            can_id,
             ccp.CommandCodes.WRITE_DAQ,
             self.ctr.value,
-            elementSize,
-            addressExtension,
-            *address
+            element_size,
+            address_extension,
+            *address,
         )
 
-    def startStop(
-        self, canID, mode, daqListNumber, lastOdtNumber, eventChannel, ratePrescaler
+    def start_stop(
+        self,
+        can_id,
+        mode,
+        daq_list_number,
+        last_odt_number,
+        event_channel,
+        rate_prescaler,
     ) -> int:
-        ratePrescaler = struct.pack(">H", ratePrescaler)
-        return self.sendCRO(
-            canID,
+        rate_prescaler = struct.pack(">H", rate_prescaler)
+        return self.send_cro(
+            can_id,
             ccp.CommandCodes.START_STOP,
             self.ctr.value,
             mode,
-            daqListNumber,
-            lastOdtNumber,
-            eventChannel,
-            *ratePrescaler
+            daq_list_number,
+            last_odt_number,
+            event_channel,
+            *rate_prescaler,
         )
 
-    def disconnect(self, canID, permanent, address) -> int:
+    def disconnect(self, can_id, permanent, address) -> int:
         address = struct.pack("<H", address)
-        return self.sendCRO(
-            canID,
+        return self.send_cro(
+            can_id,
             ccp.CommandCodes.DISCONNECT,
             self.ctr.value,
             permanent,
             0x00,
-            *address
+            *address,
         )
 
     ##
     ## Optional Commands.
     ##
-    def test(self, canID):
+    def test(self, can_id):
         pass
 
-    def dnload6(self, canID, data) -> int:
-        return self.sendCRO(canID, ccp.CommandCodes.DNLOAD_6, self.ctr.value, *data)
+    def dnload6(self, can_id, data) -> int:
+        return self.send_cro(can_id, ccp.CommandCodes.DNLOAD_6, self.ctr.value, *data)
 
-    def shortUp(self, canID, size, address, addressExtension):
+    def short_up(self, can_id, size, address, address_extension):
         pass
 
-    def startStopAll(self, canID):
+    def start_stop_all(self, can_id):
         pass
 
-    def setSStatus(self, canID):
+    def set_s_status(self, can_id):
         pass
 
-    def getSStatus(self, canID):
+    def get_s_status(self, can_id):
         pass
 
-    def buildChksum(self, can_id: int, block_size: int) -> int:
+    def build_chksum(self, can_id: int, block_size: int) -> int:
         block_size = struct.pack("<L", block_size)
-        return self.sendCRO(
+        return self.send_cro(
             can_id, ccp.CommandCodes.BUILD_CHKSUM, self.ctr.value, *block_size
         )
 
-    def clearMemory(self, canID):
+    def clear_memory(self, can_id):
         pass
 
-    def program(self, canID):
+    def program(self, can_id):
         pass
 
-    def program6(self, canID):
+    def program6(self, can_id):
         pass
 
-    def move(self, canID):
+    def move(self, can_id):
         pass
 
-    def getActiveCalPage(self, canID):
+    def get_active_cal_page(self, can_id):
         pass
 
-    def selectCalPage(self, canID):
+    def select_cal_page(self, can_id):
         pass
 
-    def unlock(self, canID):
+    def unlock(self, can_id):
         pass
 
-    def getSeed(self, canID):
+    def get_seed(self, can_id):
         pass
