@@ -89,7 +89,6 @@ class Master(ccp.CRO):
     def get_data(self, timeout=None) -> Optional[Message]:
         start_time = time.time()
         residual_timeout = timeout
-        message: Optional[Message] = None
 
         while True:
             if timeout is not None:
@@ -103,11 +102,11 @@ class Master(ccp.CRO):
             if message is not None:
                 if message.arbitration_id == self._dto:
                     self.logger.debug(f"Received message: {message}")
-                    break
+                    return message
             else:
                 self.logger.warn(f"Nothing received after: {timeout} seconds")
 
-        return message
+        return None
 
     def _transaction(
         self,
@@ -120,13 +119,13 @@ class Master(ccp.CRO):
         ctr = self.send_cro(can_id, command, ctr, *data)
         response = self.get_data(timeout)
 
+        self.logger.debug(f"Received response: {response}")
+
         if not ccp.verify_ctr(ctr, response.data):
             self.logger.error(
                 f"Invalid CTR value: expected {ctr}, received: {response.data[2]}"
             )
             return None
-
-        self.logger.debug(f"Received response: {response}")
 
         return response.data
 
