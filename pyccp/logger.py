@@ -24,6 +24,7 @@ __copyright__ = """
 """
 
 import logging
+import sys
 
 from pyccp.utils import SingletonBase
 
@@ -35,7 +36,7 @@ class Logger(SingletonBase):
     def __init__(self, name, level=logging.WARN):
         self.logger = logging.getLogger("{0}.{1}".format(self.LOGGER_BASE_NAME, name))
         self.logger.setLevel(level)
-        handler = logging.StreamHandler()
+        handler = logging.StreamHandler(stream=sys.stdout)
         handler.setLevel(level)
         formatter = logging.Formatter(self.FORMAT)
         handler.setFormatter(formatter)
