@@ -114,13 +114,12 @@ class Master(ccp.CRO):
         self,
         timeout: CommandTimeout,
         can_id: int,
-        command: int,
+        command: ccp.CommandCodes,
         ctr: int,
         *data: Union[int, bytes],
     ) -> Optional[bytes]:
         ctr = self.send_cro(can_id, command, ctr, *data)
         response = self.get_data(timeout)
-        self.logger.debug(f"Received response: {response}")
 
         if response is None:
             return None
@@ -286,7 +285,11 @@ class Master(ccp.CRO):
 
     def dnload6(self, can_id, data) -> Optional[bytes]:
         return self._transaction(
-            can_id, ccp.CommandCodes.DNLOAD_6, self.ctr.value, *data
+            ccp.CommandTimeout.DNLOAD_6,
+            can_id,
+            ccp.CommandCodes.DNLOAD_6,
+            self.ctr.value,
+            *data,
         )
 
     def short_up(self, can_id, size, address, address_extension):
