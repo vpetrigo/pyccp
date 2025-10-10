@@ -25,6 +25,7 @@ __copyright__ = """
 
 import ctypes
 import struct
+import time
 from typing import Optional
 
 import can
@@ -39,11 +40,13 @@ MTA1 = 1
 
 
 class Master(ccp.CRO):
-    def __init__(self, bus: can.BusABC):
+    def __init__(self, bus: can.BusABC, cro: int, dto: int):
         self.slaveConnections = {}
         self.transport = bus
         self.ctr = ctypes.c_uint8(0)
         self.logger = Logger("pyccp.master")
+        self._cro = cro
+        self._dto = dto
 
     def shutdown(self):
         self.transport.shutdown()
@@ -80,12 +83,25 @@ class Master(ccp.CRO):
         return ctr
 
     def get_data(self, timeout=None) -> Optional[Message]:
-        message = self.transport.recv(timeout=timeout)
+        start_time = time.time()
+        residual_timeout = timeout
+        message: Optional[Message] = None
 
-        if message is None:
-            self.logger.debug(f"Received message: {message}")
-        else:
-            self.logger.warn(f"Nothing received after: {timeout} seconds")
+        while True:
+            if timeout is not None:
+                residual_timeout = timeout - (time.time() - start_time)
+
+                if residual_timeout <= 0:
+                    break
+
+            message = self.transport.recv(timeout=residual_timeout)
+
+            if message is not None:
+                if message.arbitration_id == self._dto:
+                    self.logger.debug(f"Received message: {message}")
+                    break
+            else:
+                self.logger.warn(f"Nothing received after: {timeout} seconds")
 
         return message
 
