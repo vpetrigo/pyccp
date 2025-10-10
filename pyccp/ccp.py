@@ -98,6 +98,23 @@ class State(enum.IntEnum):
     pass
 
 
+class SecondaryResource(enum.IntEnum):
+    """
+    Enumeration for secondary resource types.
+
+    This enumeration defines constants representing different types of secondary
+    resources that can be used or required in various systems or operations.
+
+    :cvar CAL: Represents the calibration resource.
+    :cvar DAQ: Represents the data acquisition resource.
+    :cvar PGM: Represents the programming resource.
+    """
+
+    CAL = 1 << 0
+    DAQ = 1 << 1
+    PGM = 1 << 6
+
+
 class CRO(object):
     """Command Receive Object."""
 

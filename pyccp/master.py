@@ -31,6 +31,7 @@ import can
 from can import Message
 
 from pyccp import ccp
+from pyccp.ccp import SecondaryResource
 from pyccp.logger import Logger
 
 MTA0 = 0
@@ -47,13 +48,31 @@ class Master(ccp.CRO):
     def shutdown(self):
         self.transport.shutdown()
 
-    def send_cro(self, can_id, cmd, ctr, b0=0, b1=0, b2=0, b3=0, b4=0, b5=0) -> int:
-        """Transfer up to 6 data bytes from master to slave (ECU).
-
-        :return: Operation CTR value
-        :rtype: int
+    def send_cro(self, can_id, cmd, ctr, *data: int) -> int:
         """
-        data = (cmd, ctr, b0, b1, b2, b3, b4, b5)
+        Sends a Command Receive Objec (CRO) message via the transport layer.
+
+        This method constructs the CRO data frame using the provided
+        Command Specifier (cmd), counter value (ctr), and additional data bytes.
+        The data frame is then sent using the transport layer. It also ensures
+        that the control byte value increments properly after each successful
+        transmission.
+
+        :param can_id: The 11-bit or 29-bit identifier for the CAN message.
+        :type can_id: int
+        :param cmd: Command Specifier byte used in the CCP protocol.
+        :type cmd: int
+        :param ctr: Control byte used for controlling the flow of messages.
+        :type ctr: int
+        :param data: Up to six additional data bytes for the message payload.
+        :return: The updated control byte value after the message is sent.
+        :rtype: int
+        :raises ValueError: If more than six data bytes are provided.
+        """
+        if len(data) > 6:
+            raise ValueError(f"Maximum 6 data bytes allowed, got {len(data)}")
+
+        data = bytes(cmd, ctr, *data)
         msg = Message(arbitration_id=can_id, data=data, is_rx=False)
         self.transport.send(msg)
         self.ctr = ctypes.c_uint8(self.ctr.value + 1)
@@ -209,8 +228,10 @@ class Master(ccp.CRO):
     def select_cal_page(self, can_id):
         pass
 
-    def unlock(self, can_id):
-        pass
+    def unlock(self, can_id: int, key: int):
+        return self.send_cro(can_id, ccp.CommandCodes.UNLOCK, self.ctr.value, key)
 
-    def get_seed(self, can_id):
-        pass
+    def get_seed(self, can_id: int, resource: SecondaryResource) -> int:
+        return self.send_cro(
+            can_id, ccp.CommandCodes.GET_SEED, self.ctr.value, resource
+        )
