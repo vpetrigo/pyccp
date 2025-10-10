@@ -29,7 +29,7 @@ import struct
 from collections import namedtuple
 from pprint import pprint
 
-MAX_CTO = 0x0008
+MAX_CRO = 0x0008
 MAX_DTO = 0x0008
 
 CCP_VERSION = (2, 1)

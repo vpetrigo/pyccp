@@ -77,8 +77,8 @@ class Master(ccp.CRO):
 
         data = bytearray((cmd, ctr, *data))
 
-        if len(data) < 8:
-            data.extend(bytearray(8 - len(data)))
+        if len(data) < ccp.MAX_CRO:
+            data.extend(bytearray(ccp.MAX_CRO - len(data)))
 
         msg = Message(arbitration_id=can_id, data=data, is_rx=False)
         self.transport.send(msg)
