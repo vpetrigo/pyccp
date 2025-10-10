@@ -332,13 +332,13 @@ class Master(ccp.CRO):
     def select_cal_page(self, can_id):
         pass
 
-    def unlock(self, can_id: int, key: int) -> Optional[bytes]:
+    def unlock(self, can_id: int, key: bytes) -> Optional[bytes]:
         return self._transaction(
             ccp.CommandTimeout.UNLOCK,
             can_id,
             ccp.CommandCodes.UNLOCK,
             self.ctr.value,
-            key,
+            *key,
         )
 
     def get_seed(self, can_id: int, resource: SecondaryResource) -> Optional[bytes]:
