@@ -40,17 +40,17 @@ class Logger(SingletonBase):
         formatter = logging.Formatter(self.FORMAT)
         handler.setFormatter(formatter)
         self.logger.addHandler(handler)
-        self.lastMessage = None
-        self.lastSeverity = None
+        self.last_message = None
+        self.last_severity = None
 
-    def getLastError(self):
-        result = (self.lastSeverity, self.lastMessage)
-        self.lastSeverity = self.lastMessage = None
+    def get_last_error(self):
+        result = (self.last_severity, self.last_message)
+        self.last_severity = self.last_message = None
         return result
 
     def log(self, message, level):
-        self.lastSeverity = level
-        self.lastMessage = message
+        self.last_severity = level
+        self.last_message = message
         self.logger.log(level, "{0}".format(message))
 
     def info(self, message):
@@ -74,7 +74,7 @@ class Logger(SingletonBase):
     def silent(self):
         self.logger.setLevel(logging.CRITICAL)
 
-    def setLevel(self, level):
+    def set_level(self, level):
         LEVEL_MAP = {
             "INFO": logging.INFO,
             "WARN": logging.WARN,
