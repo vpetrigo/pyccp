@@ -31,7 +31,7 @@ import can
 from can import Message
 
 from pyccp import ccp
-from pyccp.ccp import SecondaryResource
+from pyccp.ccp import CommandTimeout, SecondaryResource
 from pyccp.logger import Logger
 
 MTA0 = 0
@@ -72,7 +72,7 @@ class Master(ccp.CRO):
         if len(data) > 6:
             raise ValueError(f"Maximum 6 data bytes allowed, got {len(data)}")
 
-        data = bytes(cmd, ctr, *data)
+        data = bytes((cmd, ctr, *data))
         msg = Message(arbitration_id=can_id, data=data, is_rx=False)
         self.transport.send(msg)
         self.ctr = ctypes.c_uint8(self.ctr.value + 1)
@@ -80,12 +80,33 @@ class Master(ccp.CRO):
         return ctr
 
     def get_data(self, timeout=None) -> Optional[Message]:
-        return self.transport.recv(timeout=timeout)
+        message = self.transport.recv(timeout=timeout)
+
+        if message is None:
+            self.logger.debug(f"Received message: {message}")
+        else:
+            self.logger.warn(f"Nothing received after: {timeout} seconds")
+
+        return message
+
+    def _transaction(
+        self, can_id: int, command: int, ctr: int, *data: int
+    ) -> Optional[bytes]:
+        ctr = self.send_cro(can_id, command, ctr, *data)
+        response = self.get_data(CommandTimeout.UNLOCK)
+
+        if not ccp.verify_ctr(ctr, response.data):
+            self.logger.error(
+                f"Invalid CTR value: expected {ctr}, received: {response.data[2]}"
+            )
+            return None
+
+        return response.data
 
     ##
     ## Mandatory Commands.
     ##
-    def connect(self, can_id, address) -> int:
+    def connect(self, can_id: int, address: int) -> int:
         h = (address & 0xFF00) >> 8
         l = address & 0x00FF
         return self.send_cro(can_id, ccp.CommandCodes.CONNECT, self.ctr.value, l, h)
@@ -228,10 +249,10 @@ class Master(ccp.CRO):
     def select_cal_page(self, can_id):
         pass
 
-    def unlock(self, can_id: int, key: int):
-        return self.send_cro(can_id, ccp.CommandCodes.UNLOCK, self.ctr.value, key)
+    def unlock(self, can_id: int, key: int) -> Optional[bytes]:
+        return self._transaction(can_id, ccp.CommandCodes.UNLOCK, self.ctr.value, key)
 
-    def get_seed(self, can_id: int, resource: SecondaryResource) -> int:
-        return self.send_cro(
+    def get_seed(self, can_id: int, resource: SecondaryResource) -> Optional[bytes]:
+        return self._transaction(
             can_id, ccp.CommandCodes.GET_SEED, self.ctr.value, resource
         )
