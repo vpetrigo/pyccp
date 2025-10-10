@@ -206,3 +206,57 @@ class MockTransport(object):
 class Memory(object):
     def __init__(self):
         pass
+
+
+class CommandTimeout(enum.IntEnum):
+    """
+    Enumeration for CCP command timeout values in milliseconds.
+
+    Defines the timeout values for acknowledging (ACK) different CCP commands.
+    These timeouts specify how long to wait for a response before considering
+    the command as failed.
+    """
+
+    # Mandatory Commands - 25ms timeout
+    CONNECT = 25
+    GET_CCP_VERSION = 25
+    EXCHANGE_ID = 25
+    SET_MTA = 25
+    DNLOAD = 25
+    UPLOAD = 25
+    GET_DAQ_SIZE = 25
+    SET_DAQ_PTR = 25
+    WRITE_DAQ = 25
+    START_STOP = 25
+    DISCONNECT = 25
+
+    # Optional Commands - 25ms timeout
+    GET_SEED = 25
+    UNLOCK = 25
+    DNLOAD_6 = 25
+    SHORT_UP = 25
+    SELECT_CAL_PAGE = 25
+    SET_S_STATUS = 25
+    GET_S_STATUS = 25
+    TEST = 25
+    GET_ACTIVE_CAL_PAGE = 25
+    START_STOP_ALL = 25
+
+    # Optional Commands - Extended timeouts
+    BUILD_CHKSUM = 30000
+    CLEAR_MEMORY = 30000
+    PROGRAM = 100
+    PROGRAM_6 = 100
+    MOVE = 30000
+    DIAG_SERVICE = 500
+    ACTION_SERVICE = 5000
+
+
+def verify_ctr(ctr: int, response: bytes) -> bool:
+    if len(response) < 3:
+        return False
+
+    resp_ctr = response[2]
+    is_equal = ctr == resp_ctr
+
+    return is_equal
