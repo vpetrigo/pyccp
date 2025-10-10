@@ -51,7 +51,7 @@ class Master(ccp.CRO):
     def shutdown(self):
         self.transport.shutdown()
 
-    def send_cro(self, can_id, cmd, ctr, *data: int) -> int:
+    def send_cro(self, can_id, cmd: ccp.CommandCodes, ctr, *data: int) -> int:
         """
         Sends a Command Receive Objec (CRO) message via the transport layer.
 
@@ -81,6 +81,8 @@ class Master(ccp.CRO):
             data.extend(bytearray(ccp.MAX_CRO - len(data)))
 
         msg = Message(arbitration_id=can_id, data=data, is_rx=False)
+        self.logger.debug(f"Command: [{cmd}]")
+        self.logger.debug(f"Sending message: {msg}")
         self.transport.send(msg)
         self.ctr = ctypes.c_uint8(self.ctr.value + 1)
 
@@ -118,8 +120,10 @@ class Master(ccp.CRO):
     ) -> Optional[bytes]:
         ctr = self.send_cro(can_id, command, ctr, *data)
         response = self.get_data(timeout)
-
         self.logger.debug(f"Received response: {response}")
+
+        if response is None:
+            return None
 
         if not ccp.verify_ctr(ctr, response.data):
             self.logger.error(
