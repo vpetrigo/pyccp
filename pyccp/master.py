@@ -26,7 +26,7 @@ __copyright__ = """
 import ctypes
 import struct
 import time
-from typing import Optional
+from typing import Optional, Union
 
 import can
 from can import Message
@@ -75,7 +75,11 @@ class Master(ccp.CRO):
         if len(data) > 6:
             raise ValueError(f"Maximum 6 data bytes allowed, got {len(data)}")
 
-        data = bytes((cmd, ctr, *data))
+        data = bytearray((cmd, ctr, *data))
+
+        if len(data) < 8:
+            data.extend(bytearray(8 - len(data)))
+
         msg = Message(arbitration_id=can_id, data=data, is_rx=False)
         self.transport.send(msg)
         self.ctr = ctypes.c_uint8(self.ctr.value + 1)
@@ -106,10 +110,15 @@ class Master(ccp.CRO):
         return message
 
     def _transaction(
-        self, can_id: int, command: int, ctr: int, *data: int
+        self,
+        timeout: CommandTimeout,
+        can_id: int,
+        command: int,
+        ctr: int,
+        *data: Union[int, bytes],
     ) -> Optional[bytes]:
         ctr = self.send_cro(can_id, command, ctr, *data)
-        response = self.get_data(CommandTimeout.UNLOCK)
+        response = self.get_data(timeout)
 
         if not ccp.verify_ctr(ctr, response.data):
             self.logger.error(
@@ -119,27 +128,51 @@ class Master(ccp.CRO):
 
         return response.data
 
-    ##
-    ## Mandatory Commands.
-    ##
-    def connect(self, can_id: int, address: int) -> int:
-        h = (address & 0xFF00) >> 8
-        l = address & 0x00FF
-        return self.send_cro(can_id, ccp.CommandCodes.CONNECT, self.ctr.value, l, h)
-
-    def get_ccp_version(self, can_id, major=2, minor=1) -> int:
-        return self.send_cro(
-            can_id, ccp.CommandCodes.GET_CCP_VERSION, self.ctr.value, major, minor
+    # Mandatory Commands.
+    def connect(self, can_id: int, address: int) -> Optional[bytes]:
+        high_address = (address & 0xFF00) >> 8
+        low_address = address & 0x00FF
+        return self._transaction(
+            ccp.CommandTimeout.CONNECT,
+            can_id,
+            ccp.CommandCodes.CONNECT,
+            self.ctr.value,
+            low_address,
+            high_address,
         )
 
-    def exchange_id(self, can_id, b0=0, b1=0, b2=0, b3=0, b4=0, b5=0) -> int:
-        return self.send_cro(
-            can_id, ccp.CommandCodes.EXCHANGE_ID, self.ctr.value, b0, b1, b2, b3, b4, b5
+    def get_ccp_version(self, can_id, major=2, minor=1) -> Optional[bytes]:
+        return self._transaction(
+            ccp.CommandTimeout.GET_CCP_VERSION,
+            can_id,
+            ccp.CommandCodes.GET_CCP_VERSION,
+            self.ctr.value,
+            major,
+            minor,
         )
 
-    def set_mta(self, can_id, address, address_extension=0x00, mta=MTA0) -> int:
+    def exchange_id(
+        self, can_id, b0=0, b1=0, b2=0, b3=0, b4=0, b5=0
+    ) -> Optional[bytes]:
+        return self._transaction(
+            ccp.CommandTimeout.EXCHANGE_ID,
+            can_id,
+            ccp.CommandCodes.EXCHANGE_ID,
+            self.ctr.value,
+            b0,
+            b1,
+            b2,
+            b3,
+            b4,
+            b5,
+        )
+
+    def set_mta(
+        self, can_id, address, address_extension=0x00, mta=MTA0
+    ) -> Optional[bytes]:
         address = struct.pack("<L", address)
-        return self.send_cro(
+        return self._transaction(
+            ccp.CommandTimeout.SET_MTA,
             can_id,
             ccp.CommandCodes.SET_MTA,
             self.ctr.value,
@@ -148,17 +181,29 @@ class Master(ccp.CRO):
             *address,
         )
 
-    def dnload(self, can_id, size, data) -> int:
-        return self.send_cro(
-            can_id, ccp.CommandCodes.DNLOAD, self.ctr.value, size, *data
+    def dnload(self, can_id: int, size: int, data: bytes) -> Optional[bytes]:
+        return self._transaction(
+            ccp.CommandTimeout.DNLOAD,
+            can_id,
+            ccp.CommandCodes.DNLOAD,
+            self.ctr.value,
+            size,
+            *data,
         )
 
-    def upload(self, can_id, size) -> int:
-        return self.send_cro(can_id, ccp.CommandCodes.UPLOAD, self.ctr.value, size)
+    def upload(self, can_id, size) -> Optional[bytes]:
+        return self._transaction(
+            ccp.CommandTimeout.UPLOAD,
+            can_id,
+            ccp.CommandCodes.UPLOAD,
+            self.ctr.value,
+            size,
+        )
 
-    def get_daq_size(self, can_id, daq_list_number, address) -> int:
+    def get_daq_size(self, can_id, daq_list_number, address) -> Optional[bytes]:
         address = struct.pack(">L", address)
-        return self.send_cro(
+        return self._transaction(
+            ccp.CommandTimeout.GET_DAQ_SIZE,
             can_id,
             ccp.CommandCodes.GET_DAQ_SIZE,
             self.ctr.value,
@@ -167,8 +212,11 @@ class Master(ccp.CRO):
             *address,
         )
 
-    def set_daq_ptr(self, can_id, daq_list_number, odt_number, element_number) -> int:
-        return self.send_cro(
+    def set_daq_ptr(
+        self, can_id, daq_list_number, odt_number, element_number
+    ) -> Optional[bytes]:
+        return self._transaction(
+            ccp.CommandTimeout.SET_DAQ_PTR,
             can_id,
             ccp.CommandCodes.SET_DAQ_PTR,
             self.ctr.value,
@@ -177,9 +225,12 @@ class Master(ccp.CRO):
             element_number,
         )
 
-    def write_daq(self, can_id, element_size, address_extension, address) -> int:
+    def write_daq(
+        self, can_id, element_size, address_extension, address
+    ) -> Optional[bytes]:
         address = struct.pack(">L", address)
-        return self.send_cro(
+        return self._transaction(
+            ccp.CommandTimeout.WRITE_DAQ,
             can_id,
             ccp.CommandCodes.WRITE_DAQ,
             self.ctr.value,
@@ -196,9 +247,10 @@ class Master(ccp.CRO):
         last_odt_number,
         event_channel,
         rate_prescaler,
-    ) -> int:
+    ) -> Optional[bytes]:
         rate_prescaler = struct.pack(">H", rate_prescaler)
-        return self.send_cro(
+        return self._transaction(
+            ccp.CommandTimeout.START_STOP,
             can_id,
             ccp.CommandCodes.START_STOP,
             self.ctr.value,
@@ -209,25 +261,28 @@ class Master(ccp.CRO):
             *rate_prescaler,
         )
 
-    def disconnect(self, can_id, permanent, address) -> int:
+    def disconnect(
+        self, can_id, disconnect_type: ccp.DisconnectType, address
+    ) -> Optional[bytes]:
         address = struct.pack("<H", address)
-        return self.send_cro(
+        return self._transaction(
+            ccp.CommandTimeout.DISCONNECT,
             can_id,
             ccp.CommandCodes.DISCONNECT,
             self.ctr.value,
-            permanent,
+            disconnect_type,
             0x00,
             *address,
         )
 
-    ##
-    ## Optional Commands.
-    ##
+    # Optional Commands.
     def test(self, can_id):
         pass
 
-    def dnload6(self, can_id, data) -> int:
-        return self.send_cro(can_id, ccp.CommandCodes.DNLOAD_6, self.ctr.value, *data)
+    def dnload6(self, can_id, data) -> Optional[bytes]:
+        return self._transaction(
+            can_id, ccp.CommandCodes.DNLOAD_6, self.ctr.value, *data
+        )
 
     def short_up(self, can_id, size, address, address_extension):
         pass
@@ -241,10 +296,14 @@ class Master(ccp.CRO):
     def get_s_status(self, can_id):
         pass
 
-    def build_chksum(self, can_id: int, block_size: int) -> int:
+    def build_chksum(self, can_id: int, block_size: int) -> Optional[bytes]:
         block_size = struct.pack("<L", block_size)
-        return self.send_cro(
-            can_id, ccp.CommandCodes.BUILD_CHKSUM, self.ctr.value, *block_size
+        return self._transaction(
+            ccp.CommandTimeout.BUILD_CHKSUM,
+            can_id,
+            ccp.CommandCodes.BUILD_CHKSUM,
+            self.ctr.value,
+            *block_size,
         )
 
     def clear_memory(self, can_id):
@@ -266,9 +325,19 @@ class Master(ccp.CRO):
         pass
 
     def unlock(self, can_id: int, key: int) -> Optional[bytes]:
-        return self._transaction(can_id, ccp.CommandCodes.UNLOCK, self.ctr.value, key)
+        return self._transaction(
+            ccp.CommandTimeout.UNLOCK,
+            can_id,
+            ccp.CommandCodes.UNLOCK,
+            self.ctr.value,
+            key,
+        )
 
     def get_seed(self, can_id: int, resource: SecondaryResource) -> Optional[bytes]:
         return self._transaction(
-            can_id, ccp.CommandCodes.GET_SEED, self.ctr.value, resource
+            ccp.CommandTimeout.GET_SEED,
+            can_id,
+            ccp.CommandCodes.GET_SEED,
+            self.ctr.value,
+            resource,
         )

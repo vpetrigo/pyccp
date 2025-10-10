@@ -98,6 +98,11 @@ class State(enum.IntEnum):
     pass
 
 
+class DisconnectType(enum.IntEnum):
+    TEMPORARY = 0x00
+    PERMANENT = 0x01
+
+
 class SecondaryResource(enum.IntEnum):
     """
     Enumeration for secondary resource types.
