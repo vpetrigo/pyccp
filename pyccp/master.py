@@ -89,12 +89,12 @@ class Master(ccp.CRO):
         return ctr
 
     def get_data(self, timeout=None) -> Optional[Message]:
-        start_time = time.time()
+        start_time = time.time() * 1000
         residual_timeout = timeout
 
         while True:
             if timeout is not None:
-                residual_timeout = timeout - (time.time() - start_time)
+                residual_timeout = timeout - (time.time() * 1000 - start_time)
 
                 if residual_timeout <= 0:
                     break
