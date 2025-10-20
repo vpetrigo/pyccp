@@ -88,7 +88,7 @@ class Master(ccp.CRO):
 
         return ctr
 
-    def get_data(self, timeout=None) -> Optional[Message]:
+    def _get_data(self, timeout=None) -> Optional[Message]:
         start_time = time.time() * 1000
         residual_timeout = timeout
 
@@ -102,13 +102,23 @@ class Master(ccp.CRO):
             message = self.transport.recv(timeout=residual_timeout)
 
             if message is not None:
-                if message.arbitration_id == self._dto:
-                    self.logger.debug(f"Received message: {message}")
-                    return message
-            else:
-                self.logger.warn(f"Nothing received after: {timeout} seconds")
+                return message
 
         return None
+
+    def get_data(self, timeout=None) -> Optional[Message]:
+        message = self._get_data(timeout)
+
+        if message is not None:
+            if message.arbitration_id == self._dto:
+                self.logger.debug(f"Received message: {message}")
+        else:
+            self.logger.warn(f"Nothing received after: {timeout} seconds")
+
+        return message
+
+    def get_raw_data(self, timeout=None) -> Optional[Message]:
+        return self._get_data(timeout)
 
     def _transaction(
         self,
