@@ -232,7 +232,7 @@ class Master(ccp.CRO):
     def write_daq(
         self, can_id, element_size, address_extension, address
     ) -> Optional[bytes]:
-        address = struct.pack(">L", address)
+        address = struct.pack("<L", address)
         return self._transaction(
             ccp.CommandTimeout.WRITE_DAQ,
             can_id,
