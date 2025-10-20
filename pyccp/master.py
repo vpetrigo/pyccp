@@ -205,7 +205,7 @@ class Master(ccp.CRO):
         )
 
     def get_daq_size(self, can_id, daq_list_number, address) -> Optional[bytes]:
-        address = struct.pack(">L", address)
+        address = struct.pack("<L", address)
         return self._transaction(
             ccp.CommandTimeout.GET_DAQ_SIZE,
             can_id,
