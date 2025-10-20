@@ -252,7 +252,7 @@ class Master(ccp.CRO):
         event_channel,
         rate_prescaler,
     ) -> Optional[bytes]:
-        rate_prescaler = struct.pack(">H", rate_prescaler)
+        rate_prescaler = struct.pack("<H", rate_prescaler)
         return self._transaction(
             ccp.CommandTimeout.START_STOP,
             can_id,
