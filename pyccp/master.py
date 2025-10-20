@@ -295,8 +295,14 @@ class Master(ccp.CRO):
     def short_up(self, can_id, size, address, address_extension):
         pass
 
-    def start_stop_all(self, can_id):
-        pass
+    def start_stop_all(self, can_id: int, mode: int):
+        return self._transaction(
+            ccp.CommandTimeout.START_STOP_ALL,
+            can_id,
+            ccp.CommandCodes.START_STOP_ALL,
+            self.ctr.value,
+            mode,
+        )
 
     def set_s_status(self, can_id):
         pass
