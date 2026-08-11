@@ -302,8 +302,25 @@ class Master(ccp.CRO):
             *data,
         )
 
-    def short_up(self, can_id, size, address, address_extension):
-        pass
+    def short_up(self, can_id, size, address, address_extension=0):
+        if not 1 <= size <= 5:
+            raise ValueError(f"Size must be between 1 and 5, got {size}")
+        if not 0 <= address <= 0xFFFFFFFF:
+            raise ValueError(f"Address must be a 32-bit value, got {address}")
+        if not 0 <= address_extension <= 0xFF:
+            raise ValueError(
+                f"Address extension must be a byte value, got {address_extension}"
+            )
+        address = struct.pack("<L", address)
+        return self._transaction(
+            ccp.CommandTimeout.SHORT_UP,
+            can_id,
+            ccp.CommandCodes.SHORT_UP,
+            self.ctr.value,
+            size,
+            address_extension,
+            *address,
+        )
 
     def start_stop_all(self, can_id: int, mode: int):
         return self._transaction(
@@ -314,11 +331,24 @@ class Master(ccp.CRO):
             mode,
         )
 
-    def set_s_status(self, can_id):
-        pass
+    def set_s_status(self, can_id, status):
+        if not 0 <= status <= 0xFF:
+            raise ValueError(f"Status must be a byte value, got {status}")
+        return self._transaction(
+            ccp.CommandTimeout.SET_S_STATUS,
+            can_id,
+            ccp.CommandCodes.SET_S_STATUS,
+            self.ctr.value,
+            status,
+        )
 
     def get_s_status(self, can_id):
-        pass
+        return self._transaction(
+            ccp.CommandTimeout.GET_S_STATUS,
+            can_id,
+            ccp.CommandCodes.GET_S_STATUS,
+            self.ctr.value,
+        )
 
     def build_chksum(self, can_id: int, block_size: int) -> Optional[bytes]:
         block_size = struct.pack("<L", block_size)
@@ -330,11 +360,34 @@ class Master(ccp.CRO):
             *block_size,
         )
 
-    def clear_memory(self, can_id):
-        pass
+    def clear_memory(self, can_id, block_size):
+        if not 0 <= block_size <= 0xFFFFFFFF:
+            raise ValueError(
+                f"Block size must be a 32-bit value, got {block_size}"
+            )
+        block_size = struct.pack("<L", block_size)
+        return self._transaction(
+            ccp.CommandTimeout.CLEAR_MEMORY,
+            can_id,
+            ccp.CommandCodes.CLEAR_MEMORY,
+            self.ctr.value,
+            *block_size,
+        )
 
-    def program(self, can_id):
-        pass
+    def program(self, can_id, data):
+        data = bytes(data)
+        if not 1 <= len(data) <= 5:
+            raise ValueError(
+                f"Data length must be between 1 and 5, got {len(data)}"
+            )
+        return self._transaction(
+            ccp.CommandTimeout.PROGRAM,
+            can_id,
+            ccp.CommandCodes.PROGRAM,
+            self.ctr.value,
+            len(data),
+            *data,
+        )
 
     def program6(self, can_id):
         pass
@@ -343,10 +396,20 @@ class Master(ccp.CRO):
         pass
 
     def get_active_cal_page(self, can_id):
-        pass
+        return self._transaction(
+            ccp.CommandTimeout.GET_ACTIVE_CAL_PAGE,
+            can_id,
+            ccp.CommandCodes.GET_ACTIVE_CAL_PAGE,
+            self.ctr.value,
+        )
 
     def select_cal_page(self, can_id):
-        pass
+        return self._transaction(
+            ccp.CommandTimeout.SELECT_CAL_PAGE,
+            can_id,
+            ccp.CommandCodes.SELECT_CAL_PAGE,
+            self.ctr.value,
+        )
 
     def unlock(self, can_id: int, key: bytes) -> Optional[bytes]:
         return self._transaction(
