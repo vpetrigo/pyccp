@@ -89,33 +89,51 @@ class Master(ccp.CRO):
         return ctr
 
     def _get_data(self, timeout=None) -> Optional[Message]:
-        start_time = time.time() * 1000
-        residual_timeout = timeout
+        """Receive the first available message within `timeout` seconds."""
+        if timeout is None:
+            return self.transport.recv(timeout=None)
+
+        deadline = time.monotonic() + timeout
 
         while True:
-            if timeout is not None:
-                residual_timeout = timeout - (time.time() * 1000 - start_time)
+            residual = deadline - time.monotonic()
 
-                if residual_timeout <= 0:
-                    break
+            if residual <= 0:
+                return None
 
-            message = self.transport.recv(timeout=residual_timeout)
+            message = self.transport.recv(timeout=residual)
 
             if message is not None:
                 return message
 
-        return None
-
     def get_data(self, timeout=None) -> Optional[Message]:
-        message = self._get_data(timeout)
+        """Return the first message addressed to the DTO id within `timeout` seconds."""
+        if timeout is None:
+            deadline = None
+        else:
+            deadline = time.monotonic() + timeout
 
-        if message is not None:
+        while True:
+            if deadline is None:
+                residual = None
+            else:
+                residual = deadline - time.monotonic()
+
+                if residual <= 0:
+                    break
+
+            message = self._get_data(residual)
+
+            if message is None:
+                break
+
             if message.arbitration_id == self._dto:
                 self.logger.debug(f"Received message: {message}")
-        else:
-            self.logger.warn(f"Nothing received after: {timeout} seconds")
+                return message
 
-        return message
+        self.logger.warn(f"Nothing received after: {timeout} seconds")
+
+        return None
 
     def get_raw_data(self, timeout=None) -> Optional[Message]:
         return self._get_data(timeout)
@@ -129,18 +147,35 @@ class Master(ccp.CRO):
         *data: Union[int, bytes],
     ) -> Optional[bytes]:
         ctr = self.send_cro(can_id, command, ctr, *data)
-        response = self.get_data(timeout)
+        # One absolute deadline; CommandTimeout is milliseconds, recv uses seconds.
+        deadline = time.monotonic() + float(timeout) / 1000.0
 
-        if response is None:
-            return None
+        while True:
+            residual = deadline - time.monotonic()
 
-        if not ccp.verify_ctr(ctr, response.data):
-            self.logger.error(
-                f"Invalid CTR value: expected {ctr}, received: {response.data[2]}"
-            )
-            return None
+            if residual <= 0:
+                return None
 
-        return response.data
+            response = self.get_data(residual)
+
+            if response is None:
+                return None
+
+            # Reject frames too short to carry a valid CRM.
+            if len(response.data) < 8:
+                continue
+
+            # Ignore non-CRM frames (e.g. event messages).
+            if response.data[0] != ccp.DTOType.COMMAND_RETURN_MESSAGE:
+                continue
+
+            if not ccp.verify_ctr(ctr, response.data):
+                self.logger.error(
+                    f"Invalid CTR value: expected {ctr}, received: {response.data[2]}"
+                )
+                continue
+
+            return response.data
 
     # Mandatory Commands.
     def connect(self, can_id: int, address: int) -> Optional[bytes]:
