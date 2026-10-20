@@ -26,8 +26,8 @@ __copyright__ = """
 
 import enum
 
-from src.pyccp import ccp
-from src.pyccp.logger import Logger
+from . import ccp
+from .logger import Logger
 
 
 def getLEWord(payload):
