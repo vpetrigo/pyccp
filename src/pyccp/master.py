@@ -32,9 +32,9 @@ from typing import Optional
 import can
 from can import Message
 
-from pyccp import ccp
-from pyccp.ccp import CommandTimeout, SecondaryResource
-from pyccp.logger import Logger
+from src.pyccp import ccp
+from src.pyccp.ccp import CommandTimeout, SecondaryResource
+from src.pyccp.logger import Logger
 
 MTA0 = 0
 MTA1 = 1
