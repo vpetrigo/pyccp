@@ -5,7 +5,7 @@ from can import Message
 
 from pyccp import ccp
 from pyccp.master import COMMAND_TIMEOUTS, Master
-from pyccp.tests.sequence_support import Clock
+from tests.sequence_support import Clock
 
 C, T = ccp.CommandCodes, ccp.CommandTimeout
 CRO, DTO = 0x7E1, 0x815
