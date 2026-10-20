@@ -25,9 +25,6 @@ __copyright__ = """
 """
 
 import enum
-import struct
-from collections import namedtuple
-from pprint import pprint
 
 MAX_CRO = 0x0008
 MAX_DTO = 0x0008
@@ -261,7 +258,4 @@ def verify_ctr(ctr: int, response: bytes) -> bool:
     if len(response) < 3:
         return False
 
-    resp_ctr = response[2]
-    is_equal = ctr == resp_ctr
-
-    return is_equal
+    return ctr == response[2]
