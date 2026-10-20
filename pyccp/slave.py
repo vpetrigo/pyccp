@@ -23,10 +23,7 @@ __copyright__="""
   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 """
 
-from collections import namedtuple
 import enum
-from pprint import pprint
-import struct
 
 from pyccp import ccp
 from pyccp.logger import Logger
@@ -63,7 +60,6 @@ class Slave(object):
         :param cmo: CAN Message Object
         :type cmo: `CANMessageObject`
         """
-        print("Received: {}".format(cmo))
         self.logger.debug("Received: {}".format(cmo))
         self.commandHandler(cmo)
 
@@ -73,12 +69,12 @@ class Slave(object):
     def getState(self):
         return self.state
 
-    def sendDTO(self, returnCode, counter, payload = []):
+    def sendDTO(self, returnCode, counter, payload=()):
         self.transport.send(self.masterAddress, ccp.DTOType.COMMAND_RETURN_MESSAGE, returnCode, counter, *payload)
 
-    def sendDTOIfConnected(self, returnCode, counter, payload = []):
-        if self.state == SlaveState(SlaveState.CONNECTED):
-            self.transport.send(self.masterAddress, ccp.DTOType.COMMAND_RETURN_MESSAGE, returnCode, counter, *payload)
+    def sendDTOIfConnected(self, returnCode, counter, payload=()):
+        if self.state == SlaveState.CONNECTED:
+            self.sendDTO(returnCode, counter, payload)
 
     def commandHandler(self, cmo):
         cmd = cmo.data[0]
