@@ -5,6 +5,7 @@ __copyright__ = """
     pySART - Simplified AUTOSAR-Toolkit for Python.
 
    (C) 2009-2018 by Christoph Schueler <cpu12.gems@googlemail.com>
+   (C) 2023-2026 by Vladimir Petrigo <vladimir.petrigo@gmail.com>
 
    All Rights Reserved
 
@@ -23,8 +24,8 @@ __copyright__ = """
   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 """
 
-import itertools
 import os
+import subprocess
 import sys
 import threading
 
@@ -153,9 +154,6 @@ class StructureWithEnums(ctypes.Structure):
         return "\n".join(result)
 
     __repr__ = __str__
-
-
-import subprocess
 
 
 class CommandError(Exception):
