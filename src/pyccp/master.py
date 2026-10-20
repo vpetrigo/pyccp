@@ -445,6 +445,26 @@ class Master(ccp.CRO):
             *data,
         )
 
+    def diag_service(
+        self, can_id: int, service_number: int, parameters: bytes = b""
+    ) -> Optional[bytes]:
+        """Run a diagnostic service with up to four-parameter bytes.
+
+        Return the raw CRM (or None on timeout). The slave sets MTA0 to the
+        return information; use upload() separately to read that information.
+        """
+        service_number = struct.pack(
+            "<H", _unsigned("Diagnostic service number", service_number, 16)
+        )
+        parameters = _payload(parameters, 0, 4)
+
+        return self._execute(
+            ccp.CommandCodes.DIAG_SERVICE,
+            can_id,
+            *service_number,
+            *parameters,
+        )
+
     def move(self, can_id):
         pass
 
