@@ -75,6 +75,8 @@ class TestMaster(unittest.TestCase):
             ("program", (b"abcde",), [0x18, 5, *b"abcde"]),
             ("program", (b"",), [0x18, 0]),
             ("program6", (b"\0\xffabcd",), [0x22, 0, 0xFF, *b"abcd"]),
+            ("diag_service", (0x1234,), [0x20, 0x34, 0x12]),
+            ("diag_service", (0xFFFF, b"\x00\xffab"), [0x20, 0xFF, 0xFF, 0, 0xFF, 97, 98]),
             ("get_active_cal_page", (), [0x09]),
             ("select_cal_page", (), [0x11]),
             ("unlock", (b"abcd",), [0x13, *b"abcd"]),
@@ -105,9 +107,37 @@ class TestMaster(unittest.TestCase):
             self.master.program6(CRO, factory(bytes(range(6))))
             self.assertEqual(bytes(self.bus.sent[-1].data[2:]), bytes(range(6)))
 
+    def test_diag_service_parameter_forms_and_boundaries(self):
+        for size in range(5):
+            for factory in (bytes, bytearray, memoryview, list, tuple):
+                with self.subTest(size=size, form=factory):
+                    ctr = self.master.ctr.value
+                    response = bytes([0xFF, 0, ctr, 0x20, 1, 0, 0, 0])
+                    self.bus.responses.append(Message(arbitration_id=DTO, data=response))
+                    self.assertEqual(
+                        self.master.diag_service(CRO, 0, factory(bytes(range(size)))),
+                        response,
+                    )
+                    self.assertEqual(
+                        bytes(self.bus.sent[-1].data),
+                        bytes([0x20, ctr, 0, 0, *range(size)]).ljust(8, b"\0"),
+                    )
+        # Diagnostic information is not uploaded automatically.
+        self.assertEqual(len(self.bus.sent), 25)
+
+    def test_diag_service_error_response_passthrough(self):
+        self.bus.responses.append(crm(code=0x32))
+        self.assertEqual(self.master.diag_service(CRO, 8), bytes(crm(code=0x32).data))
+        self.assertEqual(len(self.bus.sent), 1)
+
     def test_invalid_input_never_sends_or_advances_counter(self):
         cases = [("program6", (bytes(size),)) for size in range(9) if size != 6]
         cases += [
+            ("diag_service", (-1,)),
+            ("diag_service", (65536,)),
+            ("diag_service", (1.5,)),
+            ("diag_service", ("8",)),
+            ("diag_service", (8, b"12345")),
             ("program", (b"123456",)),
             ("dnload6", (b"12345",)),
             ("dnload6", (b"1234567",)),
@@ -130,6 +160,10 @@ class TestMaster(unittest.TestCase):
             cases.extend(
                 (name, (data,)) for data in (6, True, "abcdef", None, [256], [-1])
             )
+        cases.extend(
+            ("diag_service", (8, data))
+            for data in (4, True, "abcd", None, [256], [-1])
+        )
         for name, args in cases:
             with self.subTest(command=name, args=args):
                 with self.assertRaises((TypeError, ValueError)):
@@ -158,6 +192,7 @@ class TestMaster(unittest.TestCase):
             ("program6", (bytes(6),), 0.1),
             ("program", (b"",), 0.1),
             ("upload", (1,), 0.025),
+            ("diag_service", (8,), 0.5),
             ("clear_memory", (1,), 30.0),
         ):
             with self.subTest(command=name):
