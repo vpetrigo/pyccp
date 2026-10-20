@@ -21,7 +21,7 @@ class TestSlave(unittest.TestCase):
         transport = ccp.MockTransport()
         memory = ccp.Memory()
         self.slave = Slave(STATION_ADDRESS, transport, memory)
-        self.slave.logger.setLevel("DEBUG")
+        self.slave.logger.set_level("DEBUG")
 
     def tearDown(self):
         del self.slave
