@@ -1,0 +1,80 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pyccp"
+version = "0.10.0"
+description = "CAN Calibration Protocol for Python"
+authors = [{ name = "Vladimir Petrigo", email = "vladimir.petrigo@gmail.com" }]
+license-files = ["LICENSE.md"]
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "python-can >=4,<5"
+]
+
+[tool.hatch.envs.hatch-test]
+default-args = ["tests"]
+
+[[tool.hatch.envs.hatch-test.matrix]]
+python = ["3.13", "3.14", "3.15"]
+
+[tool.ruff.lint]
+select = ["E", "F"]
+
+[tool.ruff]
+line-length = 88
+
+[tool.hatch.env]
+requires = [
+    "hatch-pip-compile",
+]
+
+[tool.hatch.envs.default]
+type = "pip-compile"
+installer = "uv"
+pip-compile-hashes = true
+pip-compile-resolver = "uv"
+pip-compile-installer = "uv"
+path = ".venv"
+
+[tool.hatch.envs.type-check]
+dependencies = [
+    "mypy>=1.0"
+]
+type = "pip-compile"
+installer = "uv"
+pip-compile-hashes = true
+pip-compile-resolver = "uv"
+pip-compile-installer = "uv"
+path = ".venv"
+lock-filename = "requirements.type.txt"
+
+[tool.hatch.envs.type-check.scripts]
+check = "mypy src/"
+
+[tool.setuptools.packages.find]
+where = ["src/pyccp"]
+
+[tool.hatch.build.targets.sdist]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pyccp"]
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = false
+warn_unused_configs = true
+disallow_untyped_defs = false
+
+# Ignore missing type stubs for third-party libraries
+# [[tool.mypy.overrides]]
+# module = [
+#     "pyccp.*",
+#     "wrapt",
+# ]
+# ignore_missing_imports = true
