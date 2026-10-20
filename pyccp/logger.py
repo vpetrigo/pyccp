@@ -25,21 +25,19 @@ __copyright__ = """
 
 import logging
 
-from pyccp.utils import SingletonBase
 
+class Logger:
+    """Compatibility wrapper around named loggers; applications configure handlers."""
 
-class Logger(SingletonBase):
     LOGGER_BASE_NAME = "pyccp"
     FORMAT = "[%(levelname)s (%(name)s)]: %(message)s"
 
     def __init__(self, name, level=logging.WARN):
-        self.logger = logging.getLogger("{0}.{1}".format(self.LOGGER_BASE_NAME, name))
+        if not name.startswith(self.LOGGER_BASE_NAME + "."):
+            name = f"{self.LOGGER_BASE_NAME}.{name}"
+
+        self.logger = logging.getLogger(name)
         self.logger.setLevel(level)
-        handler = logging.StreamHandler()
-        handler.setLevel(level)
-        formatter = logging.Formatter(self.FORMAT)
-        handler.setFormatter(formatter)
-        self.logger.addHandler(handler)
         self.last_message = None
         self.last_severity = None
 
@@ -51,7 +49,7 @@ class Logger(SingletonBase):
     def log(self, message, level):
         self.last_severity = level
         self.last_message = message
-        self.logger.log(level, "{0}".format(message))
+        self.logger.log(level, "%s", message)
 
     def info(self, message):
         self.log(message, logging.INFO)
