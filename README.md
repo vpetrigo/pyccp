@@ -1,3 +1,8 @@
+[![CI](https://github.com/vpetrigo/pyccp/actions/workflows/ci.yml/badge.svg)](https://github.com/vpetrigo/pyccp/actions/workflows/ci.yml)
+[![PyPI - Version](https://img.shields.io/pypi/v/pyccp)](https://pypi.org/project/pyccp)
+![PyPI - Python Version](https://img.shields.io/pypi/pyversions/pyccp)
+[![PyPI Downloads](https://static.pepy.tech/personalized-badge/pyccp?period=monthly&units=INTERNATIONAL_SYSTEM&left_color=GREY&right_color=GREEN&left_text=downloads%2Fmonth)](https://pepy.tech/projects/pyccp)
+
 # CAN Calibration Protocol for Python
 
 A Python CAN Calibration Protocol (CCP) based on protocol version 2.1 master
