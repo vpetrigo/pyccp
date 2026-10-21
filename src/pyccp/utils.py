@@ -24,10 +24,13 @@ __copyright__ = """
   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 """
 
+import ctypes
+import mmap
 import os
 import subprocess
 import sys
 import threading
+from unicodedata import normalize
 
 
 def slicer(iterable, sliceLength, converter=None):
@@ -76,9 +79,6 @@ class Curry:
         return self.fun(*(self.pending + args), **kw)
 
 
-identity = lambda self, x: x
-
-
 def getPythonVersion():
     return sys.version_info
 
@@ -117,9 +117,6 @@ def cygpathToWin(path):
         path = path[2:].replace("/", "\\")
         path = "{0}{1}".format(driveLetter, path)
     return path
-
-
-import ctypes
 
 
 class StructureWithEnums(ctypes.Structure):
@@ -195,20 +192,17 @@ class RepresentationMixIn(object):
         result.append("{0!s} {{".format(self.__class__.__name__))
         for key in keys:
             value = getattr(self, key)
-            if isinstance(value, (int, long)):
+            if isinstance(value, (int, ctypes.c_long)):
                 line = "    {0!s} = 0x{1:X}".format(key, value)
-            elif isinstance(value, (float, types.NoneType)):
+            elif isinstance(value, (float, type(None))):
                 line = "    {0!s} = {1!s}".format(key, value)
-            elif isinstance(value, array):
-                line = "    {0!s} = {1!s}".format(key, helper.hexDump(value))
+            elif isinstance(value, bytes):
+                line = "    {0!s} = {1!s}".format(key, value.hex())
             else:
                 line = "    {0!s} = '{1!s}'".format(key, value)
             result.append(line)
         result.append("}")
         return "\n".join(result)
-
-
-import mmap
 
 
 def memoryMap(filename, writeable=False):
@@ -217,9 +211,6 @@ def memoryMap(filename, writeable=False):
     return mmap.mmap(
         fd, size, access=mmap.ACCESS_WRITE if writeable else mmap.ACCESS_READ
     )
-
-
-from unicodedata import normalize
 
 
 def nfc_equal(str1, str2):
