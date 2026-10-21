@@ -25,9 +25,9 @@ __copyright__ = """
 """
 
 import enum
+import logging
 
 from . import ccp
-from .logger import Logger
 
 
 def getLEWord(payload):
@@ -52,7 +52,7 @@ class Slave(object):
         self._mta = 0x0000
         self.ctr = 0x00
         self.setState(SlaveState.DISCONNECTED)
-        self.logger = Logger("pyccp.slave")
+        self.logger = logging.getLogger(__name__)
         # Ignore telegrams if not connected.
 
     def receive(self, cmo):

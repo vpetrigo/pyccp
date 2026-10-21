@@ -25,6 +25,7 @@ __copyright__ = """
 """
 
 import ctypes
+import logging
 import struct
 import time
 from typing import Optional
@@ -34,7 +35,6 @@ from can import Message
 
 from . import ccp
 from .ccp import CommandTimeout, SecondaryResource
-from .logger import Logger
 
 MTA0 = 0
 MTA1 = 1
@@ -86,7 +86,7 @@ class Master(ccp.CRO):
         self.slaveConnections = {}
         self.transport = bus
         self.ctr = ctypes.c_uint8(0)
-        self.logger = Logger("pyccp.master")
+        self.logger = logging.getLogger(__name__)
         self._cro = cro
         self._dto = dto
 
@@ -173,7 +173,7 @@ class Master(ccp.CRO):
                 self.logger.debug(f"Received message: {message}")
                 return message
 
-        self.logger.warn(f"Nothing received after: {timeout} seconds")
+        self.logger.warning(f"Nothing received after: {timeout} seconds")
 
         return None
 
