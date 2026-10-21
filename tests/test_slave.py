@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import logging
 import unittest
 
 from pyccp import ccp
@@ -22,7 +23,7 @@ class TestSlave(unittest.TestCase):
         transport = ccp.MockTransport()
         memory = ccp.Memory()
         self.slave = Slave(STATION_ADDRESS, transport, memory)
-        self.slave.logger.set_level("DEBUG")
+        self.slave.logger.setLevel(logging.DEBUG)
 
     def tearDown(self):
         del self.slave

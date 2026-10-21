@@ -76,7 +76,11 @@ class TestMaster(unittest.TestCase):
             ("program", (b"",), [0x18, 0]),
             ("program6", (b"\0\xffabcd",), [0x22, 0, 0xFF, *b"abcd"]),
             ("diag_service", (0x1234,), [0x20, 0x34, 0x12]),
-            ("diag_service", (0xFFFF, b"\x00\xffab"), [0x20, 0xFF, 0xFF, 0, 0xFF, 97, 98]),
+            (
+                "diag_service",
+                (0xFFFF, b"\x00\xffab"),
+                [0x20, 0xFF, 0xFF, 0, 0xFF, 97, 98],
+            ),
             ("get_active_cal_page", (), [0x09]),
             ("select_cal_page", (), [0x11]),
             ("unlock", (b"abcd",), [0x13, *b"abcd"]),
@@ -113,7 +117,9 @@ class TestMaster(unittest.TestCase):
                 with self.subTest(size=size, form=factory):
                     ctr = self.master.ctr.value
                     response = bytes([0xFF, 0, ctr, 0x20, 1, 0, 0, 0])
-                    self.bus.responses.append(Message(arbitration_id=DTO, data=response))
+                    self.bus.responses.append(
+                        Message(arbitration_id=DTO, data=response)
+                    )
                     self.assertEqual(
                         self.master.diag_service(CRO, 0, factory(bytes(range(size)))),
                         response,
@@ -161,8 +167,7 @@ class TestMaster(unittest.TestCase):
                 (name, (data,)) for data in (6, True, "abcdef", None, [256], [-1])
             )
         cases.extend(
-            ("diag_service", (8, data))
-            for data in (4, True, "abcd", None, [256], [-1])
+            ("diag_service", (8, data)) for data in (4, True, "abcd", None, [256], [-1])
         )
         for name, args in cases:
             with self.subTest(command=name, args=args):
