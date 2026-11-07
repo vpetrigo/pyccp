@@ -4,10 +4,9 @@ from unittest.mock import patch
 from can import Message
 
 from pyccp import ccp
-from pyccp.master import COMMAND_TIMEOUTS, Master
+from pyccp.master import Master
 from tests.sequence_support import Clock
 
-C, T = ccp.CommandCodes, ccp.CommandTimeout
 CRO, DTO = 0x7E1, 0x815
 
 
@@ -56,7 +55,7 @@ class TestMaster(unittest.TestCase):
         cases = [
             ("connect", (0x1234,), [0x01, 0x34, 0x12]),
             ("get_ccp_version", (), [0x1B, 2, 1]),
-            ("exchange_id", (), [0x17, 0, 0, 0, 0, 0, 0]),
+            ("exchange_id", (b"",), [0x17, 0, 0, 0, 0, 0, 0]),
             ("set_mta", (0x12345678, 2, 1), [0x02, 1, 2, 0x78, 0x56, 0x34, 0x12]),
             ("dnload", (5, b"abcde"), [0x03, 5, *b"abcde"]),
             ("upload", (4,), [0x04, 4]),
@@ -91,7 +90,7 @@ class TestMaster(unittest.TestCase):
                 self.master.ctr.value = 0x27
                 response = crm()
                 self.bus.responses.append(response)
-                reply = getattr(self.master, name)(CRO, *args)
+                reply = getattr(self.master, name)(*args)
                 self.assertIsInstance(reply, bytes)
                 self.assertEqual(reply, bytes(response.data))
                 frame = self.bus.sent[-1]
@@ -105,10 +104,10 @@ class TestMaster(unittest.TestCase):
             for factory in (bytes, bytearray, memoryview, list, tuple):
                 with self.subTest(size=size, form=factory):
                     data = factory(bytes(range(size)))
-                    self.master.program(CRO, data)
+                    self.master.program(data)
                     self.assertEqual(self.bus.sent[-1].data[2], size)
         for factory in (bytes, bytearray, memoryview, list, tuple):
-            self.master.program6(CRO, factory(bytes(range(6))))
+            self.master.program6(factory(bytes(range(6))))
             self.assertEqual(bytes(self.bus.sent[-1].data[2:]), bytes(range(6)))
 
     def test_diag_service_parameter_forms_and_boundaries(self):
@@ -121,7 +120,7 @@ class TestMaster(unittest.TestCase):
                         Message(arbitration_id=DTO, data=response)
                     )
                     self.assertEqual(
-                        self.master.diag_service(CRO, 0, factory(bytes(range(size)))),
+                        self.master.diag_service(0, factory(bytes(range(size)))),
                         response,
                     )
                     self.assertEqual(
@@ -133,7 +132,7 @@ class TestMaster(unittest.TestCase):
 
     def test_diag_service_error_response_passthrough(self):
         self.bus.responses.append(crm(code=0x32))
-        self.assertEqual(self.master.diag_service(CRO, 8), bytes(crm(code=0x32).data))
+        self.assertEqual(self.master.diag_service(8), bytes(crm(code=0x32).data))
         self.assertEqual(len(self.bus.sent), 1)
 
     def test_invalid_input_never_sends_or_advances_counter(self):
@@ -172,27 +171,26 @@ class TestMaster(unittest.TestCase):
         for name, args in cases:
             with self.subTest(command=name, args=args):
                 with self.assertRaises((TypeError, ValueError)):
-                    getattr(self.master, name)(CRO, *args)
+                    getattr(self.master, name)(*args)
                 self.assertEqual(self.bus.sent, [])
                 self.assertEqual(self.master.ctr.value, 0x27)
 
     def test_send_failure_does_not_increment_counter(self):
         self.bus.send_error = RuntimeError("send failed")
         with self.assertRaisesRegex(RuntimeError, "send failed"):
-            self.master.program6(CRO, bytes(6))
+            self.master.program6(bytes(6))
         self.assertEqual(self.master.ctr.value, 0x27)
 
     def test_counter_rollover_and_error_response_passthrough(self):
         self.master.ctr.value = 0xFF
         self.bus.responses.append(crm(ctr=0xFF, code=0x35))
-        self.assertEqual(self.master.program6(CRO, bytes(6))[1], 0x35)
+        self.assertEqual(self.master.program6(bytes(6))[1], 0x35)
         self.assertEqual(self.master.ctr.value, 0)
         self.bus.responses.append(crm(ctr=0))
-        self.assertEqual(self.master.program(CRO, b"")[2], 0)
+        self.assertEqual(self.master.program(b"")[2], 0)
         self.assertEqual(self.master.ctr.value, 1)
 
     def test_timeout_values_and_millisecond_conversion(self):
-        self.assertEqual(set(COMMAND_TIMEOUTS), set(C))
         for name, args, seconds in (
             ("program6", (bytes(6),), 0.1),
             ("program", (b"",), 0.1),
@@ -202,10 +200,9 @@ class TestMaster(unittest.TestCase):
         ):
             with self.subTest(command=name):
                 start = self.clock.now
-                self.assertIsNone(getattr(self.master, name)(CRO, *args))
+                self.assertIsNone(getattr(self.master, name)(*args))
                 self.assertAlmostEqual(self.clock.now - start, seconds)
                 self.assertAlmostEqual(self.bus.timeouts[-1], seconds)
-        self.assertEqual(COMMAND_TIMEOUTS[C.PROGRAM_6], T.PROGRAM_6)
 
     def test_invalid_responses_ignored_until_valid(self):
         self.bus.responses.extend(
@@ -217,14 +214,14 @@ class TestMaster(unittest.TestCase):
                 crm(),
             ]
         )
-        self.assertEqual(self.master.program6(CRO, bytes(6)), bytes(crm().data))
+        self.assertEqual(self.master.program6(bytes(6)), bytes(crm().data))
         self.assertEqual(len(self.bus.sent), 1)
         self.assertEqual(len(self.bus.timeouts), 5)
 
     def test_unrelated_traffic_cannot_extend_deadline(self):
         self.bus.latency = 0.01
         self.bus.responses = [crm(can_id=0x123) for _ in range(20)]
-        self.assertIsNone(self.master.program6(CRO, bytes(6)))
+        self.assertIsNone(self.master.program6(bytes(6)))
         self.assertLessEqual(self.clock.now, 0.11)
         self.assertTrue(self.bus.responses)
         self.assertLess(self.bus.timeouts[-1], self.bus.timeouts[0])
@@ -232,13 +229,13 @@ class TestMaster(unittest.TestCase):
     def test_wrong_counter_traffic_cannot_extend_deadline(self):
         self.bus.latency = 0.01
         self.bus.responses = [crm(ctr=0) for _ in range(20)]
-        self.assertIsNone(self.master.program6(CRO, bytes(6)))
+        self.assertIsNone(self.master.program6(bytes(6)))
         self.assertLessEqual(self.clock.now, 0.11)
         self.assertEqual(len(self.bus.sent), 1)
 
     def test_send_cro_payload_limit_and_shutdown(self):
         with self.assertRaises(ValueError):
-            self.master.send_cro(CRO, C.CONNECT, 0, *range(7))
+            self.master.send_cro(ccp.CONNECT, 0, *range(7))
         self.assertEqual(self.master.ctr.value, 0x27)
         self.assertEqual(self.bus.sent, [])
         self.master.shutdown()

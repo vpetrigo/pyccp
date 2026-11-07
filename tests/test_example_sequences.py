@@ -3,14 +3,15 @@
 import unittest
 from unittest.mock import patch
 
-from pyccp.ccp import CommandCodes as C, ReturnCodes as R
+import pyccp.ccp as C
+from pyccp.ccp import ReturnCodes as R
 from pyccp.master import Master
 from tests.sequence_support import (
     CAL,
-    DAQ,
-    PGM,
     CRO_ID,
+    DAQ,
     DTO_ID,
+    PGM,
     STATION,
     Clock,
     EcuBus,
@@ -39,7 +40,7 @@ class ExampleSequences(unittest.TestCase):
                 expected = [C.CONNECT, C.GET_CCP_VERSION, C.EXCHANGE_ID, C.GET_SEED]
                 if protected:
                     expected.append(C.UNLOCK)
-                    key_message = next(m for m in bus.sent if m.data[0] == C.UNLOCK)
+                    key_message = next(m for m in bus.sent if m.data[0] == C.UNLOCK.code)
                     self.assertNotEqual(bytes(key_message.data[2:6]), bus.seed)
                 self.assertEqual(bus.trace, expected + [C.GET_S_STATUS, C.SET_S_STATUS])
                 self.assertTrue(bus.privileges & CAL)
@@ -80,7 +81,7 @@ class ExampleSequences(unittest.TestCase):
                     self.assertEqual(bus.memory[:30], before[:30])
                     self.assertEqual(bus.memory[30 + size :], before[30 + size :])
                     self.assertEqual(bus.mta, 30 + size)
-                    sizes = [m.data[2] for m in bus.sent if m.data[0] == C.DNLOAD]
+                    sizes = [m.data[2] for m in bus.sent if m.data[0] == C.DNLOAD.code]
                     self.assertEqual(sizes, [5, 5] + ([3] if size == 13 else []))
                     self.assertEqual(bus.trace.count(C.CONNECT), int(not connected))
                     self.assertEqual(
@@ -111,7 +112,7 @@ class ExampleSequences(unittest.TestCase):
             self.assertEqual(bus.mta, 30 + size)
             self.assertEqual(bus.memory, before)
             self.assertNotIn(C.CONNECT, bus.trace)
-            sizes = [m.data[2] for m in bus.sent if m.data[0] == C.UPLOAD]
+            sizes = [m.data[2] for m in bus.sent if m.data[0] == C.UPLOAD.code]
             self.assertEqual(sizes, [5, 5] + ([3] if size == 13 else []))
 
     def test_14_3_mid_upload_failure_reports_partial_not_success(self):
@@ -141,7 +142,7 @@ class ExampleSequences(unittest.TestCase):
         self.assertEqual(bus.trace[-3:], [C.SET_MTA, C.SELECT_CAL_PAGE, C.SET_S_STATUS])
         self.assertEqual(bus.status, original_status | CAL)
         self.assertEqual(bus.trace[-2:], [C.SELECT_CAL_PAGE, C.SET_S_STATUS])
-        status_bytes = [m.data[2] for m in bus.sent if m.data[0] == C.SET_S_STATUS]
+        status_bytes = [m.data[2] for m in bus.sent if m.data[0] == C.SET_S_STATUS.code]
         self.assertEqual(status_bytes, [original_status & ~CAL, original_status | CAL])
 
     def test_14_4_checksum_download_page_failures_leave_cal_clear(self):
@@ -210,7 +211,7 @@ class ExampleSequences(unittest.TestCase):
                 C.START_STOP,
             ],
         )
-        status_bytes = [m.data[2] for m in bus.sent if m.data[0] == C.SET_S_STATUS]
+        status_bytes = [m.data[2] for m in bus.sent if m.data[0] == C.SET_S_STATUS.code]
         self.assertEqual(status_bytes, [0x81, 0x83])
         self.assertEqual(bus.daq, {0: {0: (2, 10), 1: (1, 20)}})
         self.assertTrue(bus.running)
@@ -260,12 +261,12 @@ class ExampleSequences(unittest.TestCase):
                     self.assertNotIn(C.CONNECT, bus.trace)
                     self.assertEqual(
                         bytes(bus.sent[-1].data),
-                        bytes([C.PROGRAM, len(bus.sent) - 1, 0, 0, 0, 0, 0, 0]),
+                        bytes([C.PROGRAM.code, len(bus.sent) - 1, 0, 0, 0, 0, 0, 0]),
                     )
                     writes = bus.sent[2:-1]
                     actual = b"".join(
                         bytes(m.data[2:8])
-                        if m.data[0] == C.PROGRAM_6
+                        if m.data[0] == C.PROGRAM_6.code
                         else bytes(m.data[3 : 3 + m.data[2]])
                         for m in writes
                     )
