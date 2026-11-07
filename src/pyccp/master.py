@@ -11,7 +11,7 @@ import can
 from can import Message
 
 from . import ccp
-from .ccp import Command, SecondaryResource
+from .ccp import SecondaryResource
 
 MTA0 = 0
 MTA1 = 1
@@ -54,13 +54,16 @@ def _pack_address(address: int):
 
 class Master:
     def __init__(self, bus: can.BusABC, cro: int, dto: int):
-        """CCP Master implementation for sending and receiving messages over a CAN Calibration Protocol.
+        """CCP Master implementation for sending and receiving messages over
+        a CAN Calibration Protocol.
 
         :param bus: CAN Bus object for sending and receiving messages.
         :type bus: `can.BusABC`
-        :param cro: The 11-bit or 29-bit identifier for outgoing CAN message from the host.
+        :param cro: The 11-bit or 29-bit identifier for outgoing CAN message from
+        the host.
         :type cro: int
-        :param dto: The 11-bit or 29-bit identifier for incoming CAN message from a slave.
+        :param dto: The 11-bit or 29-bit identifier for incoming CAN message from
+        a slave.
         :type dto: int
         """
         self.transport = bus

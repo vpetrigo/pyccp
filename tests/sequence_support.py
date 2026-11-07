@@ -44,11 +44,33 @@ from pyccp.ccp import (
 _COMMAND_BY_CODE = {
     cmd.code: cmd
     for cmd in (
-        CONNECT, GET_CCP_VERSION, EXCHANGE_ID, SET_MTA, DNLOAD, UPLOAD,
-        GET_DAQ_SIZE, SET_DAQ_PTR, WRITE_DAQ, START_STOP, DISCONNECT,
-        GET_SEED, UNLOCK, DNLOAD_6, SHORT_UP, SELECT_CAL_PAGE, SET_S_STATUS,
-        GET_S_STATUS, BUILD_CHKSUM, CLEAR_MEMORY, PROGRAM, PROGRAM_6,
-        MOVE, TEST, GET_ACTIVE_CAL_PAGE, START_STOP_ALL, DIAG_SERVICE,
+        CONNECT,
+        GET_CCP_VERSION,
+        EXCHANGE_ID,
+        SET_MTA,
+        DNLOAD,
+        UPLOAD,
+        GET_DAQ_SIZE,
+        SET_DAQ_PTR,
+        WRITE_DAQ,
+        START_STOP,
+        DISCONNECT,
+        GET_SEED,
+        UNLOCK,
+        DNLOAD_6,
+        SHORT_UP,
+        SELECT_CAL_PAGE,
+        SET_S_STATUS,
+        GET_S_STATUS,
+        BUILD_CHKSUM,
+        CLEAR_MEMORY,
+        PROGRAM,
+        PROGRAM_6,
+        MOVE,
+        TEST,
+        GET_ACTIVE_CAL_PAGE,
+        START_STOP_ALL,
+        DIAG_SERVICE,
         ACTION_SERVICE,
     )
 }
@@ -291,7 +313,7 @@ class EcuBus:
 class SequenceFailure(Exception):
     def __init__(self, command, code=None, partial=b""):
         self.command, self.code, self.partial = command, code, bytes(partial)
-        if hasattr(command, 'code'):
+        if hasattr(command, "code"):
             cmd_label = f"0x{command.code:02X}"
         else:
             cmd_label = f"0x{command:02X}"

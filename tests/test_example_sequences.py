@@ -40,7 +40,9 @@ class ExampleSequences(unittest.TestCase):
                 expected = [C.CONNECT, C.GET_CCP_VERSION, C.EXCHANGE_ID, C.GET_SEED]
                 if protected:
                     expected.append(C.UNLOCK)
-                    key_message = next(m for m in bus.sent if m.data[0] == C.UNLOCK.code)
+                    key_message = next(
+                        m for m in bus.sent if m.data[0] == C.UNLOCK.code
+                    )
                     self.assertNotEqual(bytes(key_message.data[2:6]), bus.seed)
                 self.assertEqual(bus.trace, expected + [C.GET_S_STATUS, C.SET_S_STATUS])
                 self.assertTrue(bus.privileges & CAL)
