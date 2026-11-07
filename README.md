@@ -6,8 +6,7 @@
 # CAN Calibration Protocol for Python
 
 A Python CAN Calibration Protocol (CCP) based on protocol version 2.1 master
-using [python-can](https://python-can.readthedocs.io/). Forked from the [pySART/pyccp](https://github.com/pySART/pyccp)
-and added support for some of the missed commands.
+using [python-can](https://python-can.readthedocs.io/). Inspired by the [pySART/pyccp](https://github.com/pySART/pyccp).
 
 ## Install
 
