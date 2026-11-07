@@ -169,7 +169,7 @@ class Master:
     ) -> Optional[bytes]:
         ctr = self.send_cro(command, ctr, *data)
         # One absolute deadline; CommandTimeout is milliseconds, recv uses seconds.
-        deadline = time.monotonic() + float(timeout) / 1000.0
+        deadline = time.monotonic() + timeout / 1000.0
 
         while True:
             residual = deadline - time.monotonic()
