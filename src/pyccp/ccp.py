@@ -1,29 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-__copyright__ = """
-    pySART - Simplified AUTOSAR-Toolkit for Python.
-
-   (C) 2009-2016 by Christoph Schueler <cpu12.gems@googlemail.com>
-   (C) 2023-2026 by Vladimir Petrigo <vladimir.petrigo@gmail.com>
-
-   All Rights Reserved
-
-  This program is free software; you can redistribute it and/or modify
-  it under the terms of the GNU General Public License as published by
-  the Free Software Foundation; either version 2 of the License, or
-  (at your option) any later version.
-
-  This program is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-  GNU General Public License for more details.
-
-  You should have received a copy of the GNU General Public License along
-  with this program; if not, write to the Free Software Foundation, Inc.,
-  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
-"""
-
+import dataclasses
 import enum
 
 MAX_CRO = 0x0008
@@ -32,37 +10,54 @@ MAX_DTO = 0x0008
 CCP_VERSION = (2, 1)
 
 
-class CommandCodes(enum.IntEnum):
-    # Mandatory Commands.
-    CONNECT = 0x01
-    GET_CCP_VERSION = 0x1B
-    EXCHANGE_ID = 0x17
-    SET_MTA = 0x02
-    DNLOAD = 0x03
-    UPLOAD = 0x04
-    GET_DAQ_SIZE = 0x14
-    SET_DAQ_PTR = 0x15
-    WRITE_DAQ = 0x16
-    START_STOP = 0x06
-    DISCONNECT = 0x07
-    # Optional Commands.
-    GET_SEED = 0x12
-    UNLOCK = 0x13
-    DNLOAD_6 = 0x23
-    SHORT_UP = 0x0F
-    SELECT_CAL_PAGE = 0x11
-    SET_S_STATUS = 0x0C
-    GET_S_STATUS = 0x0D
-    BUILD_CHKSUM = 0x0E
-    CLEAR_MEMORY = 0x10
-    PROGRAM = 0x18
-    PROGRAM_6 = 0x22
-    MOVE = 0x19
-    TEST = 0x05
-    GET_ACTIVE_CAL_PAGE = 0x09
-    START_STOP_ALL = 0x08
-    DIAG_SERVICE = 0x20
-    ACTION_SERVICE = 0x21
+@dataclasses.dataclass(frozen=True)
+class Command:
+    """
+    Immutable command configuration.
+
+    Represents a command by its numeric code and the timeout value associated
+    with executing or handling that command. Instances are frozen by the data class
+    declaration, so the recorded values are intended to remain stable after
+    creation.
+
+    :ivar code: Numeric identifier for the command.
+    :ivar timeout: Timeout value associated with the command in milliseconds.
+    """
+
+    code: int
+    timeout: int
+
+
+# Mandatory Commands
+CONNECT = Command(0x01, 25)
+GET_CCP_VERSION = Command(0x1B, 25)
+EXCHANGE_ID = Command(0x17, 25)
+SET_MTA = Command(0x02, 25)
+DNLOAD = Command(0x03, 25)
+UPLOAD = Command(0x04, 25)
+GET_DAQ_SIZE = Command(0x14, 25)
+SET_DAQ_PTR = Command(0x15, 25)
+WRITE_DAQ = Command(0x16, 25)
+START_STOP = Command(0x06, 25)
+DISCONNECT = Command(0x07, 25)
+# Optional Commands
+GET_SEED = Command(0x12, 25)
+UNLOCK = Command(0x13, 25)
+DNLOAD_6 = Command(0x23, 25)
+SHORT_UP = Command(0x0F, 25)
+SELECT_CAL_PAGE = Command(0x11, 25)
+SET_S_STATUS = Command(0x0C, 25)
+GET_S_STATUS = Command(0x0D, 25)
+BUILD_CHKSUM = Command(0x0E, 30000)
+CLEAR_MEMORY = Command(0x10, 30000)
+PROGRAM = Command(0x18, 100)
+PROGRAM_6 = Command(0x22, 100)
+MOVE = Command(0x19, 30000)
+TEST = Command(0x05, 25)
+GET_ACTIVE_CAL_PAGE = Command(0x09, 25)
+START_STOP_ALL = Command(0x08, 25)
+DIAG_SERVICE = Command(0x20, 500)
+ACTION_SERVICE = Command(0x21, 5000)
 
 
 class ReturnCodes(enum.IntEnum):
@@ -84,15 +79,6 @@ class ReturnCodes(enum.IntEnum):
     OVERLOAD = 0x34  # C3 FAULT
     ACCESS_LOCKED = 0x35  # C3 FAULT
     RESOURCE_FUNCTION_NOT_AVAILABLE = 0x36  # C3 FAULT
-
-
-class DTOType(enum.IntEnum):
-    COMMAND_RETURN_MESSAGE = 255
-    EVENT_MESSAGE = 254
-
-
-class State(enum.IntEnum):
-    pass
 
 
 class DisconnectType(enum.IntEnum):
@@ -117,141 +103,10 @@ class SecondaryResource(enum.IntEnum):
     PGM = 1 << 6
 
 
-class CRO(object):
-    """Command Receive Object."""
-
-
-class DTO(object):
-    """Data Transmission Object."""
-
-    COMMAND_RETURN_MESSAGE = 255
-    EVENT_MESSAGE = 254
-
-    def send(self, pid, err, ctr, b0=0, b1=0, b2=0, b3=0, b4=0):
-        """Transfer up to 5 data bytes from slave (ECU) to master."""
-        pass
-
-
-class CRM(DTO):
-    """Command Return Message."""
-
-
-class EVM(DTO):
-    """Event Message."""
-
-
-class DAQ(object):
-    """Data Acquisition Message."""
-
-    def send(self, pid, b0=0, b1=0, b2=0, b3=0, b4=0, b5=0, b6=0):
-        """Transfer up to 7 data bytes from slave (ECU) to master."""
-        pass
-
-
-class ODT(object):
-    """Object Descriptor Table."""
-
-
-class DAQList(object):
-    """Data Acquisition List."""
-
-    """
-    2401
-    360a
-    360b
-    360c
-    360d
-    """
-
-
-# File format not recognized.
-
-
-class CANMessageObject(object):
-    def __init__(self, canID, dlc, data, extendedAddr=False, rtr=False):
-        self.canID = canID
-        self.dlc = dlc
-        self.data = data
-        self.extendedAddr = extendedAddr
-        self.rtr = rtr
-
-    def __str__(self):
-        addrFmt = "[{:08X}]  " if self.extendedAddr else "{:04X}  "
-        fmt = addrFmt + "{}"
-        return fmt.format(self.canID, " ".join(["{:02X}".format(x) for x in self.data]))
-
-    __repr__ = __str__
-
-
-class MockTransport(object):
-    def __init__(self):
-        self.parent = None
-
-    def send(self, canID, b0=0, b1=0, b2=0, b3=0, b4=0, b5=0, b6=0, b7=0):
-        self.message = CANMessageObject(
-            canID, 8, bytearray((b0, b1, b2, b3, b4, b5, b6, b7))
-        )
-        # print("Sending: {}".format(self.message))
-
-    def receive(self, canID, b0=0, b1=0, b2=0, b3=0, b4=0, b5=0, b6=0, b7=0):
-        self.message = CANMessageObject(
-            canID, 8, bytearray((b0, b1, b2, b3, b4, b5, b6, b7))
-        )
-        self.parent.receive(self.message)
-
-    def __str__(self):
-        return "[Current Message]: {}".format(self.message)
-
-    __repr__ = __str__
-
-
-class Memory(object):
-    def __init__(self):
-        pass
-
-
-class CommandTimeout(enum.IntEnum):
-    """
-    Enumeration for CCP command timeout values in milliseconds.
-
-    Defines the timeout values for acknowledging (ACK) different CCP commands.
-    These timeouts specify how long to wait for a response before considering
-    the command as failed.
-    """
-
-    # Mandatory Commands - 25ms timeout
-    CONNECT = 25
-    GET_CCP_VERSION = 25
-    EXCHANGE_ID = 25
-    SET_MTA = 25
-    DNLOAD = 25
-    UPLOAD = 25
-    GET_DAQ_SIZE = 25
-    SET_DAQ_PTR = 25
-    WRITE_DAQ = 25
-    START_STOP = 25
-    DISCONNECT = 25
-
-    # Optional Commands - 25ms timeout
-    GET_SEED = 25
-    UNLOCK = 25
-    DNLOAD_6 = 25
-    SHORT_UP = 25
-    SELECT_CAL_PAGE = 25
-    SET_S_STATUS = 25
-    GET_S_STATUS = 25
-    TEST = 25
-    GET_ACTIVE_CAL_PAGE = 25
-    START_STOP_ALL = 25
-
-    # Optional Commands - Extended timeouts
-    BUILD_CHKSUM = 30000
-    CLEAR_MEMORY = 30000
-    PROGRAM = 100
-    PROGRAM_6 = 100
-    MOVE = 30000
-    DIAG_SERVICE = 500
-    ACTION_SERVICE = 5000
+class DTO:
+    class Type(enum.IntEnum):
+        COMMAND_RETURN_MESSAGE = 255
+        EVENT_MESSAGE = 254
 
 
 def verify_ctr(ctr: int, response: bytes) -> bool:
