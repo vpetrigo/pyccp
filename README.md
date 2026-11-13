@@ -5,12 +5,10 @@
 
 # CAN Calibration Protocol for Python
 
-A Python CAN Calibration Protocol (CCP) based on protocol version 2.1 master
-using [python-can](https://python-can.readthedocs.io/). Inspired by the [pySART/pyccp](https://github.com/pySART/pyccp).
+Python implementation of the CAN Calibration Protocol (CCP) v2.1 Master, built
+on [python-can](https://python-can.readthedocs.io/). Inspired by [pySART/pyccp](https://github.com/pySART/pyccp).
 
 ## Install
-
-Add into the `pyproject.toml`:
 
 ```toml
 dependencies = [
@@ -18,61 +16,51 @@ dependencies = [
 ]
 ```
 
-## Running tests
-
-Execute the following command to run the tests:
-
-```sh
-hatch test
-```
-
-If you want to run only a specific version of Python, you can use the `-py` option:
-
-```sh
-hatch test -py 3.14
-```
-
-## Example
+## Quick Start
 
 ```python
-import logging
 import can
 from pyccp import Master
+from pyccp.ccp import ReturnCodes
 
-logging.basicConfig(level=logging.WARNING)  # Library does not install stream handlers.
 bus = can.Bus(interface="socketcan", channel="can0")
-master = Master(bus, cro=0x7E1, dto=0x815)
 
+with Master(bus, cro=0x7E1, dto=0x815) as master:
+    resp = master.connect(address=0x39)
+    assert resp is not None and resp.code.value == 0
 
-def require_ack(response):
-    if response is None:
-        raise TimeoutError("CCP response timed out")
-    if response[1] != 0:
-        raise RuntimeError(f"CCP error: {response[1]:#04x}")
-    return response
+    resp = master.set_mta(address=0x1000)
+    assert resp.code.value == 0
 
+    resp = master.clear_memory(block_size=0x200)
+    chunks = [b"abcdef", b"ghi", b""]
 
-try:
-    require_ack(master.connect(0x7E1, address=0x39))
-    # Perform the target ECU's seed/key authorization and preparation as required.
-    require_ack(master.set_mta(0x7E1, address=0x1000))
-    require_ack(master.clear_memory(0x7E1, block_size=9))
-    require_ack(master.program6(0x7E1, b"abcdef"))  # Exactly 6 bytes, no size byte.
-    require_ack(master.program(0x7E1, b"ghi"))  # 1–5 bytes.
-    require_ack(master.program(0x7E1, b""))  # PROGRAM(size=0): terminate.
-finally:
-    master.shutdown()
+    for chunk in chunks:
+        resp = master.program6(chunk)
+        assert resp.code == ReturnCodes.ACKNOWLEDGE
 ```
 
-## Logging setup
+## DAQ & Events
+
+```python
+from pyccp import Master, DAQMessage, CommandResponse
+
+with Master(bus, cro=0x7E1, dto=0x815) as master:
+    # Register a callback for DAQ messages
+    master.on_daq(0x816, lambda msg: print(f"DAQ: {msg.daq_id:#04X}, ODT: {msg.pid}, data: {msg.data.hex()}"))
+    # Connect and configure DAQ list
+```
+
+## Logging
 
 ```python
 import logging
 
-logger = logging.getLogger("pyccp")
-logger.setLevel(logging.DEBUG)
+logging.getLogger("pyccp").setLevel(logging.DEBUG)
+```
 
-handler = logging.StreamHandler()
-handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s"))
-logger.addHandler(handler)
+## Tests
+
+```sh
+hatch test -py 3.15
 ```
