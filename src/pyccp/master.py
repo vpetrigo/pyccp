@@ -58,6 +58,8 @@ def _pack_address(address: int):
 
 
 class CommandResponse:
+    __slots__ = ("code", "data")
+
     def __init__(self, raw_data: bytes):
         if len(raw_data) < 3:
             raise ValueError("Raw data must be at least 3 bytes long")
@@ -66,8 +68,17 @@ class CommandResponse:
         self.data = raw_data[3:]
 
 
-DAQCallback = Callable[[Message], None]
-EventCallback = Callable[[Message], None]
+class DAQMessage:
+    __slots__ = ("daq_id", "pid", "data")
+
+    def __init__(self, message: Message):
+        self.daq_id = message.arbitration_id
+        self.pid = message.data[0]
+        self.data = message.data[1:]
+
+
+DAQCallback = Callable[[DAQMessage], None]
+EventCallback = Callable[[CommandResponse], None]
 
 
 class Master:
@@ -207,21 +218,21 @@ class Master:
 
     def _handle_daq(self, message: Message) -> None:
         """Handle a DAQ message by invoking the registered callback for the DAQ ID."""
-        daq_id = message.data[0]
+        daq_id = message.arbitration_id
 
         with self._lock:
             callback = self._on_daq.get(daq_id)
 
             if callback is not None:
                 self.logger.debug(f"Handling DAQ message with ID: {daq_id}")
-                callback(message)
+                callback(DAQMessage(message))
 
     def _handle_event(self, message: Message) -> None:
         """Handle an event message by invoking the registered event callback."""
         with self._lock:
             if self._on_event is not None:
                 self.logger.debug(f"Handling event message: {message}")
-                self._on_event(message)
+                self._on_event(CommandResponse(message.data))
 
     def _get_data(self, timeout: Optional[float] = None) -> Optional[Message]:
         """Receive the first available message within `timeout` seconds."""
