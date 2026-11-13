@@ -72,7 +72,7 @@ EventCallback = Callable[[Message], None]
 
 class Master:
     class _Receiver(Thread):
-        def __init__(self, master: Master):
+        def __init__(self, master: "Master"):
             super().__init__(daemon=True)
             self._master = master
             self._stop_event = Event()
