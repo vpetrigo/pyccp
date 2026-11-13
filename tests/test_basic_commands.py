@@ -1,7 +1,5 @@
 """Basic command tests — every mandatory and optional CCP command with an ACK reply."""
 
-import pytest
-
 from pyccp import ccp
 from pyccp.ccp import ReturnCodes
 

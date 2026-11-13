@@ -4,7 +4,9 @@ import pytest
 
 
 class TestValidation:
-    """Tests that invalid input raises TypeError/ValueError without sending CRO frames."""
+    """Tests that invalid input raises TypeError/ValueError
+    without sending CRO frames.
+    """
 
     def test_invalid_program6_length(self, master, slave):
         """program6 with wrong length must raise before sending."""

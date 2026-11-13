@@ -9,8 +9,6 @@ Covers all six Example Sequences:
 - 14.6 Code Update
 """
 
-import pytest
-
 from pyccp import ccp
 from pyccp.ccp import ReturnCodes
 

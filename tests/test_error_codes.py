@@ -4,8 +4,6 @@ Tests that the Master correctly receives and reports non-ACK return codes
 from the slave for various commands.
 """
 
-import pytest
-
 from pyccp import ccp
 from pyccp.ccp import ReturnCodes
 

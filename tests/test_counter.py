@@ -1,7 +1,5 @@
 """Counter tests — verifying CTR byte increments correctly."""
 
-import pytest
-
 STATION = 0x1234
 
 
