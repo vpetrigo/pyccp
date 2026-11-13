@@ -9,26 +9,18 @@ Covers all six Example Sequences:
 - 14.6 Code Update
 """
 
-import unittest
+import pytest
 
 from pyccp import ccp
 from pyccp.ccp import ReturnCodes
-from tests.virtual_bus import STATION, make_master_and_slave
+
+STATION = 0x1234
 
 
-class TestExampleSequences(unittest.TestCase):
+class TestExampleSequences:
     """Tests for all six Example Sequences from CCP 2.1 Section 14."""
 
-    def _ack_slave(self):
-        """Return a reply_fn that always ACKs."""
-        return None
-
-    def _cleanup(self, master, slave):
-        """Stop slave thread and shut down both buses."""
-        slave.stop()
-        master.__exit__(None, None, None)
-
-    def test_14_1_session_login_unprotected(self):
+    def test_14_1_session_login_unprotected(self, master, slave):
         """14.1 Session log-in — no seed/key required.
 
         CONNECT -> GET_CCP_VERSION -> EXCHANGE_ID -> GET_SEED -> GET_S_STATUS
@@ -48,46 +40,44 @@ class TestExampleSequences(unittest.TestCase):
                 return 0x00, bytes([0x81, 0x00])
             return 0x00, b""
 
-        master, slave = make_master_and_slave(reply)
-        try:
-            # CONNECT
-            resp = master.connect(STATION)
-            self.assertEqual(resp.code, ReturnCodes.ACKNOWLEDGE)
+        slave.reply = reply
 
-            # GET_CCP_VERSION
-            resp = master.get_ccp_version()
-            self.assertEqual(resp.code, ReturnCodes.ACKNOWLEDGE)
-            self.assertEqual(resp.data[:2], bytes([2, 1]))
+        # CONNECT
+        resp = master.connect(STATION)
+        assert resp.code == ReturnCodes.ACKNOWLEDGE
 
-            # EXCHANGE_ID
-            resp = master.exchange_id(b"")
-            self.assertEqual(resp.code, ReturnCodes.ACKNOWLEDGE)
+        # GET_CCP_VERSION
+        resp = master.get_ccp_version()
+        assert resp.code == ReturnCodes.ACKNOWLEDGE
+        assert resp.data[:2] == bytes([2, 1])
 
-            # GET_SEED (CAL resource)
-            resp = master.get_seed(ccp.SecondaryResource.CAL)
-            self.assertEqual(resp.code, ReturnCodes.ACKNOWLEDGE)
-            self.assertEqual(resp.data[0], 0)  # not locked
+        # EXCHANGE_ID
+        resp = master.exchange_id(b"")
+        assert resp.code == ReturnCodes.ACKNOWLEDGE
 
-            # GET_S_STATUS
-            resp = master.get_s_status()
-            self.assertEqual(resp.code, ReturnCodes.ACKNOWLEDGE)
+        # GET_SEED (CAL resource)
+        resp = master.get_seed(ccp.SecondaryResource.CAL)
+        assert resp.code == ReturnCodes.ACKNOWLEDGE
+        assert resp.data[0] == 0  # not locked
 
-            # SET_S_STATUS (enable CAL)
-            resp = master.set_s_status(0x81)
-            self.assertEqual(resp.code, ReturnCodes.ACKNOWLEDGE)
+        # GET_S_STATUS
+        resp = master.get_s_status()
+        assert resp.code == ReturnCodes.ACKNOWLEDGE
 
-            # Verify command sequence on slave side
-            cmds = [m.data[0] for m in slave.received]
-            self.assertIn(ccp.CONNECT.code, cmds)
-            self.assertIn(ccp.GET_CCP_VERSION.code, cmds)
-            self.assertIn(ccp.EXCHANGE_ID.code, cmds)
-            self.assertIn(ccp.GET_SEED.code, cmds)
-            self.assertIn(ccp.GET_S_STATUS.code, cmds)
-            self.assertIn(ccp.SET_S_STATUS.code, cmds)
-        finally:
-            self._cleanup(master, slave)
+        # SET_S_STATUS (enable CAL)
+        resp = master.set_s_status(0x81)
+        assert resp.code == ReturnCodes.ACKNOWLEDGE
 
-    def test_14_1_session_login_protected_with_unlock(self):
+        # Verify command sequence on slave side
+        cmds = [m.data[0] for m in slave.received]
+        assert ccp.CONNECT.code in cmds
+        assert ccp.GET_CCP_VERSION.code in cmds
+        assert ccp.EXCHANGE_ID.code in cmds
+        assert ccp.GET_SEED.code in cmds
+        assert ccp.GET_S_STATUS.code in cmds
+        assert ccp.SET_S_STATUS.code in cmds
+
+    def test_14_1_session_login_protected_with_unlock(self, master, slave):
         """14.1 Session log-in — seed/key required (UNLOCK step).
 
         CONNECT -> GET_CCP_VERSION -> EXCHANGE_ID -> GET_SEED -> UNLOCK
@@ -110,61 +100,54 @@ class TestExampleSequences(unittest.TestCase):
                 return 0x00, bytes([0x81, 0x00])
             return 0x00, b""
 
-        master, slave = make_master_and_slave(reply)
-        try:
-            resp = master.connect(STATION)
-            self.assertEqual(resp.code, ReturnCodes.ACKNOWLEDGE)
+        slave.reply = reply
+        resp = master.connect(STATION)
+        assert resp.code == ReturnCodes.ACKNOWLEDGE
 
-            resp = master.get_ccp_version()
-            self.assertEqual(resp.code, ReturnCodes.ACKNOWLEDGE)
+        resp = master.get_ccp_version()
+        assert resp.code == ReturnCodes.ACKNOWLEDGE
 
-            resp = master.exchange_id(b"")
-            self.assertEqual(resp.code, ReturnCodes.ACKNOWLEDGE)
+        resp = master.exchange_id(b"")
+        assert resp.code == ReturnCodes.ACKNOWLEDGE
 
-            resp = master.get_seed(ccp.SecondaryResource.CAL)
-            self.assertEqual(resp.code, ReturnCodes.ACKNOWLEDGE)
-            self.assertEqual(resp.data[0], 1)  # locked
+        resp = master.get_seed(ccp.SecondaryResource.CAL)
+        assert resp.code == ReturnCodes.ACKNOWLEDGE
+        assert resp.data[0] == 1  # locked
 
-            # UNLOCK with key
-            resp = master.unlock(b"\xab\xcd\xef\x01")
-            self.assertEqual(resp.code, ReturnCodes.ACKNOWLEDGE)
+        # UNLOCK with key
+        resp = master.unlock(b"\xab\xcd\xef\x01")
+        assert resp.code == ReturnCodes.ACKNOWLEDGE
 
-            resp = master.get_s_status()
-            self.assertEqual(resp.code, ReturnCodes.ACKNOWLEDGE)
+        resp = master.get_s_status()
+        assert resp.code == ReturnCodes.ACKNOWLEDGE
 
-            resp = master.set_s_status(0x81)
-            self.assertEqual(resp.code, ReturnCodes.ACKNOWLEDGE)
+        resp = master.set_s_status(0x81)
+        assert resp.code == ReturnCodes.ACKNOWLEDGE
 
-            cmds = [m.data[0] for m in slave.received]
-            self.assertIn(ccp.UNLOCK.code, cmds)
-        finally:
-            self._cleanup(master, slave)
+        cmds = [m.data[0] for m in slave.received]
+        assert ccp.UNLOCK.code in cmds
 
-    def test_14_2_block_download(self):
+    def test_14_2_block_download(self, master, slave):
         """14.2 Block DownLoad: CONNECT -> SET_MTA -> DNLOAD (n times)."""
-        master, slave = make_master_and_slave()
-        try:
-            resp = master.connect(STATION)
-            self.assertEqual(resp.code, ReturnCodes.ACKNOWLEDGE)
+        resp = master.connect(STATION)
+        assert resp.code == ReturnCodes.ACKNOWLEDGE
 
-            resp = master.set_mta(0x1000)
-            self.assertEqual(resp.code, ReturnCodes.ACKNOWLEDGE)
+        resp = master.set_mta(0x1000)
+        assert resp.code == ReturnCodes.ACKNOWLEDGE
 
-            data = bytes(range(10))
-            for i in range(0, len(data), 5):
-                chunk = data[i : i + 5]
-                resp = master.dnload(len(chunk), chunk)
-                self.assertEqual(resp.code, ReturnCodes.ACKNOWLEDGE)
+        data = bytes(range(10))
+        for i in range(0, len(data), 5):
+            chunk = data[i : i + 5]
+            resp = master.dnload(len(chunk), chunk)
+            assert resp.code == ReturnCodes.ACKNOWLEDGE
 
-            cmds = [m.data[0] for m in slave.received]
-            self.assertEqual(cmds[0], ccp.CONNECT.code)
-            self.assertEqual(cmds[1], ccp.SET_MTA.code)
-            self.assertEqual(cmds[2], ccp.DNLOAD.code)
-            self.assertEqual(cmds[3], ccp.DNLOAD.code)
-        finally:
-            self._cleanup(master, slave)
+        cmds = [m.data[0] for m in slave.received]
+        assert cmds[0] == ccp.CONNECT.code
+        assert cmds[1] == ccp.SET_MTA.code
+        assert cmds[2] == ccp.DNLOAD.code
+        assert cmds[3] == ccp.DNLOAD.code
 
-    def test_14_3_block_upload(self):
+    def test_14_3_block_upload(self, master, slave):
         """14.3 Block UpLoad: CONNECT -> SET_MTA -> UPLOAD (n times)."""
 
         def reply(ctr, cmd, payload):
@@ -173,28 +156,24 @@ class TestExampleSequences(unittest.TestCase):
                 return 0x00, bytes(range(size))
             return 0x00, b""
 
-        master, slave = make_master_and_slave(reply)
-        try:
-            resp = master.connect(STATION)
-            self.assertEqual(resp.code, ReturnCodes.ACKNOWLEDGE)
+        resp = master.connect(STATION)
+        assert resp.code == ReturnCodes.ACKNOWLEDGE
 
-            resp = master.set_mta(0x2000)
-            self.assertEqual(resp.code, ReturnCodes.ACKNOWLEDGE)
+        resp = master.set_mta(0x2000)
+        assert resp.code == ReturnCodes.ACKNOWLEDGE
 
-            for _ in range(2):
-                resp = master.upload(5)
-                self.assertEqual(resp.code, ReturnCodes.ACKNOWLEDGE)
-                self.assertEqual(len(resp.data), 5)
+        for _ in range(2):
+            resp = master.upload(5)
+            assert resp.code == ReturnCodes.ACKNOWLEDGE
+            assert len(resp.data) == 5
 
-            cmds = [m.data[0] for m in slave.received]
-            self.assertEqual(cmds[0], ccp.CONNECT.code)
-            self.assertEqual(cmds[1], ccp.SET_MTA.code)
-            self.assertEqual(cmds[2], ccp.UPLOAD.code)
-            self.assertEqual(cmds[3], ccp.UPLOAD.code)
-        finally:
-            self._cleanup(master, slave)
+        cmds = [m.data[0] for m in slave.received]
+        assert cmds[0] == ccp.CONNECT.code
+        assert cmds[1] == ccp.SET_MTA.code
+        assert cmds[2] == ccp.UPLOAD.code
+        assert cmds[3] == ccp.UPLOAD.code
 
-    def test_14_4_calibration_data_initialization(self):
+    def test_14_4_calibration_data_initialization(self, master, slave):
         """14.4 Calibration Data Initialization:
 
         CONNECT -> SET_S_STATUS(CAL=off) -> loop[SET_MTA, BUILD_CHKSUM,
@@ -209,46 +188,43 @@ class TestExampleSequences(unittest.TestCase):
                 return 0x00, bytes([0x81, 0x00])
             return 0x00, b""
 
-        master, slave = make_master_and_slave(reply)
-        try:
-            # CONNECT
-            resp = master.connect(STATION)
-            self.assertEqual(resp.code, ReturnCodes.ACKNOWLEDGE)
+        slave.reply = reply
+        # CONNECT
+        resp = master.connect(STATION)
+        assert resp.code == ReturnCodes.ACKNOWLEDGE
 
-            # SET_S_STATUS(CAL=off)
-            resp = master.set_s_status(0x80)
-            self.assertEqual(resp.code, ReturnCodes.ACKNOWLEDGE)
+        # SET_S_STATUS(CAL=off)
+        resp = master.set_s_status(0x80)
+        assert resp.code == ReturnCodes.ACKNOWLEDGE
 
-            # SET_MTA
-            resp = master.set_mta(0x1000)
-            self.assertEqual(resp.code, ReturnCodes.ACKNOWLEDGE)
+        # SET_MTA
+        resp = master.set_mta(0x1000)
+        assert resp.code == ReturnCodes.ACKNOWLEDGE
 
-            # BUILD_CHKSUM
-            resp = master.build_chksum(0x10)
-            self.assertEqual(resp.code, ReturnCodes.ACKNOWLEDGE)
+        # BUILD_CHKSUM
+        resp = master.build_chksum(0x10)
+        assert resp.code == ReturnCodes.ACKNOWLEDGE
 
-            # DNLOAD (checksum mismatch)
-            resp = master.dnload(5, b"\x00\x01\x02\x03\x04")
-            self.assertEqual(resp.code, ReturnCodes.ACKNOWLEDGE)
+        # DNLOAD (checksum mismatch)
+        resp = master.dnload(5, b"\x00\x01\x02\x03\x04")
+        assert resp.code == ReturnCodes.ACKNOWLEDGE
 
-            # SELECT_CAL_PAGE
-            resp = master.select_cal_page()
-            self.assertEqual(resp.code, ReturnCodes.ACKNOWLEDGE)
+        # SELECT_CAL_PAGE
+        resp = master.select_cal_page()
+        assert resp.code == ReturnCodes.ACKNOWLEDGE
 
-            # SET_S_STATUS(CAL=on)
-            resp = master.set_s_status(0x81)
-            self.assertEqual(resp.code, ReturnCodes.ACKNOWLEDGE)
+        # SET_S_STATUS(CAL=on)
+        resp = master.set_s_status(0x81)
+        assert resp.code == ReturnCodes.ACKNOWLEDGE
 
-            cmds = [m.data[0] for m in slave.received]
-            self.assertIn(ccp.SET_S_STATUS.code, cmds)
-            self.assertIn(ccp.SET_MTA.code, cmds)
-            self.assertIn(ccp.BUILD_CHKSUM.code, cmds)
-            self.assertIn(ccp.DNLOAD.code, cmds)
-            self.assertIn(ccp.SELECT_CAL_PAGE.code, cmds)
-        finally:
-            self._cleanup(master, slave)
+        cmds = [m.data[0] for m in slave.received]
+        assert ccp.SET_S_STATUS.code in cmds
+        assert ccp.SET_MTA.code in cmds
+        assert ccp.BUILD_CHKSUM.code in cmds
+        assert ccp.DNLOAD.code in cmds
+        assert ccp.SELECT_CAL_PAGE.code in cmds
 
-    def test_14_5_daq_list_initialization(self):
+    def test_14_5_daq_list_initialization(self, master, slave):
         """14.5 DAQ List Initialization:
 
         CONNECT -> SET_S_STATUS(DAQ=0) -> GET_DAQ_SIZE ->
@@ -262,97 +238,85 @@ class TestExampleSequences(unittest.TestCase):
                 return 0x00, bytes([0x81, 0x00])
             return 0x00, b""
 
-        master, slave = make_master_and_slave(reply)
-        try:
-            # CONNECT
-            resp = master.connect(STATION)
-            self.assertEqual(resp.code, ReturnCodes.ACKNOWLEDGE)
+        # CONNECT
+        resp = master.connect(STATION)
+        assert resp.code == ReturnCodes.ACKNOWLEDGE
 
-            # SET_S_STATUS(DAQ=0)
-            resp = master.set_s_status(0x80)
-            self.assertEqual(resp.code, ReturnCodes.ACKNOWLEDGE)
+        # SET_S_STATUS(DAQ=0)
+        resp = master.set_s_status(0x80)
+        assert resp.code == ReturnCodes.ACKNOWLEDGE
 
-            # GET_DAQ_SIZE
-            resp = master.get_daq_size(0, 0x500)
-            self.assertEqual(resp.code, ReturnCodes.ACKNOWLEDGE)
+        # GET_DAQ_SIZE
+        resp = master.get_daq_size(0, 0x500)
+        assert resp.code == ReturnCodes.ACKNOWLEDGE
 
-            # SET_DAQ_PTR + WRITE_DAQ (first entry)
-            resp = master.set_daq_ptr(0, 0, 0)
-            self.assertEqual(resp.code, ReturnCodes.ACKNOWLEDGE)
-            resp = master.write_daq(2, 0, 0x1000)
-            self.assertEqual(resp.code, ReturnCodes.ACKNOWLEDGE)
+        # SET_DAQ_PTR + WRITE_DAQ (first entry)
+        resp = master.set_daq_ptr(0, 0, 0)
+        assert resp.code == ReturnCodes.ACKNOWLEDGE
+        resp = master.write_daq(2, 0, 0x1000)
+        assert resp.code == ReturnCodes.ACKNOWLEDGE
 
-            # SET_DAQ_PTR + WRITE_DAQ (second entry)
-            resp = master.set_daq_ptr(0, 0, 1)
-            self.assertEqual(resp.code, ReturnCodes.ACKNOWLEDGE)
-            resp = master.write_daq(4, 0, 0x2000)
-            self.assertEqual(resp.code, ReturnCodes.ACKNOWLEDGE)
+        # SET_DAQ_PTR + WRITE_DAQ (second entry)
+        resp = master.set_daq_ptr(0, 0, 1)
+        assert resp.code == ReturnCodes.ACKNOWLEDGE
+        resp = master.write_daq(4, 0, 0x2000)
+        assert resp.code == ReturnCodes.ACKNOWLEDGE
 
-            # SET_S_STATUS(DAQ=1)
-            resp = master.set_s_status(0x83)
-            self.assertEqual(resp.code, ReturnCodes.ACKNOWLEDGE)
+        # SET_S_STATUS(DAQ=1)
+        resp = master.set_s_status(0x83)
+        assert resp.code == ReturnCodes.ACKNOWLEDGE
 
-            # START_STOP
-            resp = master.start_stop(1, 0, 0, 1, 100)
-            self.assertEqual(resp.code, ReturnCodes.ACKNOWLEDGE)
+        # START_STOP
+        resp = master.start_stop(1, 0, 0, 1, 100)
+        assert resp.code == ReturnCodes.ACKNOWLEDGE
 
-            cmds = [m.data[0] for m in slave.received]
-            self.assertIn(ccp.SET_S_STATUS.code, cmds)
-            self.assertIn(ccp.GET_DAQ_SIZE.code, cmds)
-            self.assertIn(ccp.SET_DAQ_PTR.code, cmds)
-            self.assertIn(ccp.WRITE_DAQ.code, cmds)
-            self.assertIn(ccp.START_STOP.code, cmds)
-        finally:
-            self._cleanup(master, slave)
+        cmds = [m.data[0] for m in slave.received]
+        assert ccp.SET_S_STATUS.code in cmds
+        assert ccp.GET_DAQ_SIZE.code in cmds
+        assert ccp.SET_DAQ_PTR.code in cmds
+        assert ccp.WRITE_DAQ.code in cmds
+        assert ccp.START_STOP.code in cmds
 
-    def test_14_6_code_update(self):
+    def test_14_6_code_update(self, master, slave):
         """14.6 Code Update:
 
         CONNECT -> SET_MTA -> CLEAR_MEMORY ->
         loop[PROGRAM / PROGRAM6] -> PROGRAM(size=0) [finalize]
         """
-        master, slave = make_master_and_slave()
-        try:
-            # CONNECT
-            resp = master.connect(STATION)
-            self.assertEqual(resp.code, ReturnCodes.ACKNOWLEDGE)
+        # CONNECT
+        resp = master.connect(STATION)
+        assert resp.code == ReturnCodes.ACKNOWLEDGE
 
-            # SET_MTA
-            resp = master.set_mta(0x8000)
-            self.assertEqual(resp.code, ReturnCodes.ACKNOWLEDGE)
+        # SET_MTA
+        resp = master.set_mta(0x8000)
+        assert resp.code == ReturnCodes.ACKNOWLEDGE
 
-            # CLEAR_MEMORY
-            resp = master.clear_memory(0x100)
-            self.assertEqual(resp.code, ReturnCodes.ACKNOWLEDGE)
+        # CLEAR_MEMORY
+        resp = master.clear_memory(0x100)
+        assert resp.code == ReturnCodes.ACKNOWLEDGE
 
-            # PROGRAM (multiple chunks)
-            resp = master.program(b"\x00\x01\x02\x03\x04")
-            self.assertEqual(resp.code, ReturnCodes.ACKNOWLEDGE)
+        # PROGRAM (multiple chunks)
+        resp = master.program(b"\x00\x01\x02\x03\x04")
+        assert resp.code == ReturnCodes.ACKNOWLEDGE
 
-            resp = master.program6(b"\x05\x06\x07\x08\x09\x0a")
-            self.assertEqual(resp.code, ReturnCodes.ACKNOWLEDGE)
+        resp = master.program6(b"\x05\x06\x07\x08\x09\x0a")
+        assert resp.code == ReturnCodes.ACKNOWLEDGE
 
-            resp = master.program(b"\x0b\x0c")
-            self.assertEqual(resp.code, ReturnCodes.ACKNOWLEDGE)
+        resp = master.program(b"\x0b\x0c")
+        assert resp.code == ReturnCodes.ACKNOWLEDGE
 
-            # PROGRAM(size=0) — finalize
-            resp = master.program(b"")
-            self.assertEqual(resp.code, ReturnCodes.ACKNOWLEDGE)
+        # PROGRAM(size=0) — finalize
+        resp = master.program(b"")
+        assert resp.code == ReturnCodes.ACKNOWLEDGE
 
-            cmds = [m.data[0] for m in slave.received]
-            self.assertEqual(cmds[0], ccp.CONNECT.code)
-            self.assertEqual(cmds[1], ccp.SET_MTA.code)
-            self.assertEqual(cmds[2], ccp.CLEAR_MEMORY.code)
-            self.assertIn(ccp.PROGRAM.code, cmds)
-            self.assertIn(ccp.PROGRAM_6.code, cmds)
-            # Last command must be PROGRAM (finalize)
-            self.assertEqual(cmds[-1], ccp.PROGRAM.code)
-            # Verify last PROGRAM has size=0
-            last_msg = slave.received[-1]
-            self.assertEqual(last_msg.data[2], 0)  # size byte = 0
-        finally:
-            self._cleanup(master, slave)
-
-
-if __name__ == "__main__":
-    unittest.main()
+        cmds = [m.data[0] for m in slave.received]
+        assert cmds[0] == ccp.CONNECT.code
+        assert cmds[1] == ccp.SET_MTA.code
+        assert cmds[2] == ccp.CLEAR_MEMORY.code
+        assert ccp.PROGRAM.code in cmds
+        assert ccp.PROGRAM_6.code in cmds
+        # Last command must be PROGRAM (finalize)
+        assert cmds[-1] == ccp.PROGRAM.code
+        # Verify last PROGRAM has size=0
+        last_msg = slave.received[-1]
+        assert last_msg.data[2] == 0  # size byte = 0
