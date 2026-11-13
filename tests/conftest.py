@@ -50,7 +50,7 @@ class SlaveResponder(threading.Thread):
         self.cro = cro
         self.dto = dto
         self.reply_fn = reply_fn
-        self._stop = threading.Event()
+        self._stop_event = threading.Event()
         self._lock = threading.Lock()
         self.received: list[Message] = []
 
@@ -65,7 +65,7 @@ class SlaveResponder(threading.Thread):
             self.reply_fn = fn
 
     def run(self):
-        while not self._stop.is_set():
+        while not self._stop_event.is_set():
             msg = self.bus.recv(timeout=0.05)
 
             if msg is None:
@@ -91,7 +91,7 @@ class SlaveResponder(threading.Thread):
 
     def stop(self):
         if self.bus is not None:
-            self._stop.set()
+            self._stop_event.set()
             self.join()
             self.bus.shutdown()
             self.bus = None

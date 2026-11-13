@@ -2,6 +2,8 @@
 
 import time
 
+from pyccp.ccp import CONNECT
+
 STATION = 0x1234
 
 
@@ -13,8 +15,8 @@ class TestTimeout:
         # Slave will ACK, but we stop it first so no reply arrives.
         slave.stop()
         # Use a short-timeout command (25 ms).
-        start = time.monotonic()
+        start = time.perf_counter()
         resp = master.connect(STATION)
-        elapsed = time.monotonic() - start
+        elapsed = time.perf_counter() - start
         assert resp is None
-        assert elapsed >= 0.02  # at least ~25 ms
+        assert elapsed >= CONNECT.timeout / 1000.0  # at least ~25 ms
