@@ -2,7 +2,8 @@
 
 import threading
 import uuid
-from collections.abc import Generator
+from collections.abc import Callable, Generator
+from typing import Optional
 
 import can
 import pytest
@@ -54,12 +55,12 @@ class SlaveResponder(threading.Thread):
         self.received: list[Message] = []
 
     @property
-    def reply(self):
+    def reply(self) -> Optional[Callable[[int, int, bytes], tuple[int, bytes]]]:
         with self._lock:
             return self.reply_fn
 
     @reply.setter
-    def reply(self, fn):
+    def reply(self, fn: Callable[[int, int, bytes], tuple[int, bytes]]):
         with self._lock:
             self.reply_fn = fn
 
