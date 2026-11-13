@@ -27,17 +27,17 @@ bus = can.Bus(interface="socketcan", channel="can0")
 
 with Master(bus, cro=0x7E1, dto=0x815) as master:
     resp = master.connect(address=0x39)
-    assert resp is not None and resp.code.value == 0
+    assert resp is not None and resp.code == ReturnCodes.ACKNOWLEDGE
 
     resp = master.set_mta(address=0x1000)
-    assert resp.code.value == 0
+    assert resp is not None and resp.code == ReturnCodes.ACKNOWLEDGE
 
     resp = master.clear_memory(block_size=0x200)
     chunks = [b"abcdef", b"ghi", b""]
 
     for chunk in chunks:
         resp = master.program6(chunk)
-        assert resp.code == ReturnCodes.ACKNOWLEDGE
+        assert resp is not None and resp.code == ReturnCodes.ACKNOWLEDGE
 ```
 
 ## DAQ & Events
