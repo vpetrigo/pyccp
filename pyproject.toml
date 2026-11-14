@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pyccp"
-version = "0.10.0"
+version = "0.11.0"
 description = "CAN Calibration Protocol for Python"
 authors = [{ name = "Vladimir Petrigo", email = "vladimir.petrigo@gmail.com" }]
 license-files = ["LICENSE.md"]
