@@ -119,7 +119,7 @@ class Client:
                     except can.exceptions.CanError:
                         pass
 
-            self._queue.task_done()
+                self._queue.task_done()
 
         def stop(self) -> None:
             self._stop_event.set()
@@ -175,18 +175,18 @@ class Client:
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:
-        self._receiver.stop()
-        self._dto_sender.stop()
-        self._daq_sender.stop()
-        self._receiver.join()
-        self._dto_sender.join()
-        self._daq_sender.join()
-        self._bus.shutdown()
-
-        self._receiver = None
-        self._dto_sender = None
-        self._daq_sender = None
-        self._bus = None
+        if self._receiver is not None:
+            self._receiver.stop()
+            self._receiver = None
+        if self._dto_sender is not None:
+            self._dto_sender.stop()
+            self._dto_sender = None
+        if self._daq_sender is not None:
+            self._daq_sender.stop()
+            self._daq_sender = None
+        if self._bus is not None:
+            self._bus.shutdown()
+            self._bus = None
 
     def _get_data(self, timeout: Optional[float] = None) -> Optional[can.Message]:
         """Receive the first available message within `timeout` seconds."""
