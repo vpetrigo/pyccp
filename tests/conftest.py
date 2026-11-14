@@ -9,6 +9,8 @@ import can
 import pytest
 from can import Message
 
+from pyccp.ccp import CRO, DTO, ReturnCodes
+from pyccp.client import Client
 from pyccp.master import Master
 
 # ---------------------------------------------------------------------------
@@ -16,20 +18,19 @@ from pyccp.master import Master
 # ---------------------------------------------------------------------------
 
 
-CRO = 0x7E1
-DTO = 0x815
+_CRO = 0x7E1
+_DTO = 0x815
 
 
 def make_crm(
-    ctr: int, code: int = 0x00, tail: bytes = b"", can_id: int = DTO
+    ctr: int, code: int = 0x00, tail: bytes = b"", can_id: int = _DTO
 ) -> Message:
     """Build a Command Return Message."""
-    data = bytes([0xFF, code, ctr]) + bytes(tail)
-    data = data.ljust(8, b"\x00")
-    return Message(arbitration_id=can_id, data=data)
+    dto = DTO.dto(ctr, ReturnCodes(code), tail)
+    return Message(arbitration_id=can_id, data=dto.bytes())
 
 
-class SlaveResponder(threading.Thread):
+class SlaveResponder(Client):
     """Background thread that reads CRO frames and replies with CRMs.
 
     *reply_fn* is called with ``(ctr, cmd_code, payload)`` and must return
@@ -43,9 +44,10 @@ class SlaveResponder(threading.Thread):
         bus: can.BusABC,
         cro: int,
         dto: int,
+        station_id: int = 0x1234,
         reply_fn=None,
     ):
-        super().__init__(daemon=True)
+        super().__init__(bus, cro, dto, station_id)
         self.bus = bus
         self.cro = cro
         self.dto = dto
@@ -53,6 +55,28 @@ class SlaveResponder(threading.Thread):
         self._stop_event = threading.Event()
         self._lock = threading.Lock()
         self.received: list[Message] = []
+
+        for cmd in self._handlers:
+            self.register_handler(
+                cmd, lambda _cro: DTO.dto(_cro.ctr, ReturnCodes.ACKNOWLEDGE, b"")
+            )
+
+    def _on_message(self, message: can.Message) -> None:
+        """Track received messages and delegate to parent handler."""
+        self.received.append(message)
+        super()._on_message(message)
+
+    def stop(self) -> None:
+        """Stop the internal receiver and sender threads."""
+        if self._receiver is not None:
+            self._receiver.stop()
+            self._receiver = None
+        if self._dto_sender is not None:
+            self._dto_sender.stop()
+            self._dto_sender = None
+        if self._daq_sender is not None:
+            self._daq_sender.stop()
+            self._daq_sender = None
 
     @property
     def reply(self) -> Optional[Callable[[int, int, bytes], tuple[int, bytes]]]:
@@ -64,37 +88,12 @@ class SlaveResponder(threading.Thread):
         with self._lock:
             self.reply_fn = fn
 
-    def run(self):
-        while not self._stop_event.is_set():
-            msg = self.bus.recv(timeout=0.05)
+            def h(cro: CRO) -> DTO:
+                code, tail = self.reply_fn(cro.ctr, cro.code, cro.data)
+                return DTO.dto(cro.ctr, ReturnCodes(code), tail)
 
-            if msg is None:
-                continue
-
-            if msg.arbitration_id != self.cro:
-                continue
-
-            self.received.append(msg)
-            ctr = msg.data[1]
-            cmd = msg.data[0]
-            payload = bytes(msg.data[2:])
-
-            reply_fn = self.reply
-
-            if reply_fn:
-                code, tail = reply_fn(ctr, cmd, payload)
-            else:
-                code, tail = 0x00, b""
-
-            reply = make_crm(ctr, code, tail, self.dto)
-            self.bus.send(reply)
-
-    def stop(self):
-        if self.bus is not None:
-            self._stop_event.set()
-            self.join()
-            self.bus.shutdown()
-            self.bus = None
+            for cmd in self._handlers:
+                self.register_handler(cmd, h)
 
 
 @pytest.fixture
@@ -111,10 +110,8 @@ def slave(_channel) -> Generator[SlaveResponder, None, None]:
     """
     ch = _channel
     slave_bus = can.interface.Bus(ch, interface="virtual")
-    responder = SlaveResponder(slave_bus, CRO, DTO, None)
-    responder.start()
-    yield responder
-    responder.stop()
+    with SlaveResponder(slave_bus, _CRO, _DTO) as c:
+        yield c
 
 
 @pytest.fixture
@@ -126,5 +123,5 @@ def master(_channel) -> Generator[Master, None, None]:
     ch = _channel
     master_bus = can.interface.Bus(ch, interface="virtual")
 
-    with Master(master_bus, CRO, DTO) as m:
+    with Master(master_bus, _CRO, _DTO) as m:
         yield m

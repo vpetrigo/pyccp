@@ -5,7 +5,7 @@
 
 # CAN Calibration Protocol for Python
 
-Python implementation of the CAN Calibration Protocol (CCP) v2.1 Master, built
+Python implementation of the CAN Calibration Protocol (CCP) v2.1, built
 on [python-can](https://python-can.readthedocs.io/). Inspired by [pySART/pyccp](https://github.com/pySART/pyccp).
 
 ## Install
@@ -43,12 +43,63 @@ with Master(bus, cro=0x7E1, dto=0x815) as master:
 ## DAQ & Events
 
 ```python
-from pyccp import Master, DAQMessage, CommandResponse
+from pyccp import Master, DAQMessage, DTO
 
 with Master(bus, cro=0x7E1, dto=0x815) as master:
     # Register a callback for DAQ messages
-    master.on_daq(0x816, lambda msg: print(f"DAQ: {msg.daq_id:#04X}, ODT: {msg.pid}, data: {msg.data.hex()}"))
+    master.on_daq(
+        0x816,
+        lambda msg: print(
+            f"DAQ: 0x{msg.daq_id:04X}, ODT: {msg.pid}, data: {msg.data.hex()}"
+        ),
+    )
     # Connect and configure DAQ list
+```
+
+## Client
+
+The `Client` class provides a lower-level, handler-based interface for CCP
+client-side operations. It manages a background receiver thread and separate
+sender threads for DTO and DAQ messages.
+
+### Basic usage
+
+```python
+import can
+from pyccp import Client
+from pyccp.ccp import CONNECT, GET_CCP_VERSION
+
+bus = can.Bus(interface="socketcan", channel="can0")
+
+with Client(bus, cro=0x7E1, dto=0x815, station_id=0x39) as client:
+    client.register_handler(CONNECT.code, lambda cro: dto_ack)
+    client.register_handler(GET_CCP_VERSION.code, lambda cro: dto_version)
+    # send/receive CCP commands via the registered handlers
+```
+
+### Registering a handler
+
+Each handler receives a `CRO` and must return a `DTO` response.
+
+```python
+from pyccp.ccp import CONNECT, CRO, DTO, ReturnCodes
+
+
+def on_connect(cro: CRO) -> DTO:
+    # process the connect request
+    return DTO(code=ReturnCodes.ACKNOWLEDGE, data=b"\x00\x00\x00\x00\x00\x00")
+
+
+client.register_handler(CONNECT.code, on_connect)
+```
+
+### Sending DAQ messages
+
+```python
+from pyccp.ccp import DAQMessage
+
+msg = DAQMessage(daq_id=0x816, pid=0, data=b"\x01\x02\x03\x04")
+client.send_daq(msg)
 ```
 
 ## Logging
