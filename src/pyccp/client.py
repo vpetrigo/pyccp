@@ -112,6 +112,8 @@ class Client:
                     can_msg: Optional[can.Message] = self._queue.get(timeout=0.1)
                 except queue.Empty:
                     continue
+                except queue.ShutDown:
+                    break
 
                 if can_msg is not None:
                     try:
@@ -123,6 +125,7 @@ class Client:
 
         def stop(self) -> None:
             self._stop_event.set()
+            self._queue.shutdown(immediate=True)
             self._queue.join()
             self.join()
 
