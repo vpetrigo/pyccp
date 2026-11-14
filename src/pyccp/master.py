@@ -16,7 +16,7 @@ import can
 from can import Message
 
 from . import ccp
-from .ccp import ReturnCodes, SecondaryResource
+from .ccp import DTO, DAQMessage, ReturnCodes, SecondaryResource
 
 MTA0 = 0
 MTA1 = 1
@@ -57,34 +57,14 @@ def _pack_address(address: int):
     return struct.pack("<L", _unsigned("Address", address, 32))
 
 
-class CommandResponse:
-    __slots__ = ("code", "data")
-
-    def __init__(self, raw_data: bytes):
-        if len(raw_data) < 3:
-            raise ValueError("Raw data must be at least 3 bytes long")
-
-        self.code = ReturnCodes(raw_data[1])
-        self.data = raw_data[3:]
-
-
-class DAQMessage:
-    __slots__ = ("daq_id", "pid", "data")
-
-    def __init__(self, message: Message):
-        self.daq_id = message.arbitration_id
-        self.pid = message.data[0]
-        self.data = message.data[1:]
-
-
 DAQCallback = Callable[[DAQMessage], None]
-EventCallback = Callable[[CommandResponse], None]
+EventCallback = Callable[[DTO], None]
 
 
 class Master:
     class _Receiver(Thread):
         def __init__(self, master: "Master"):
-            super().__init__(daemon=True)
+            super().__init__()
             self._master = master
             self._stop_event = Event()
 
@@ -212,7 +192,7 @@ class Master:
             future = self._pending_requests.pop(ctr, None)
 
             if future is not None:
-                future.set_result(CommandResponse(message.data))
+                future.set_result(DTO.from_response(message.data))
             else:
                 self.logger.warning(f"Unexpected response received: {message}")
 
@@ -232,7 +212,7 @@ class Master:
         with self._lock:
             if self._on_event is not None:
                 self.logger.debug(f"Handling event message: {message}")
-                self._on_event(CommandResponse(message.data))
+                self._on_event(DTO.from_response(message.data))
 
     def _get_data(self, timeout: Optional[float] = None) -> Optional[Message]:
         """Receive the first available message within `timeout` seconds."""
@@ -290,7 +270,7 @@ class Master:
         command: ccp.Command,
         ctr: int,
         *data: int,
-    ) -> Optional[CommandResponse]:
+    ) -> Optional[DTO]:
         future = Future()
 
         with self._lock:
@@ -307,27 +287,25 @@ class Master:
 
             return None
 
-    def _execute(
-        self, command: ccp.Command, *payload: int
-    ) -> Optional[CommandResponse]:
+    def _execute(self, command: ccp.Command, *payload: int) -> Optional[DTO]:
         """Resolve transaction metadata once; public commands only encode payloads."""
         return self._transaction(command.timeout, command, self.ctr.value, *payload)
 
     # Mandatory Commands.
-    def connect(self, address: int) -> Optional[CommandResponse]:
+    def connect(self, address: int) -> Optional[DTO]:
         address = struct.pack("<H", _unsigned("Station address", address, 16))
         return self._execute(ccp.CONNECT, *address)
 
     def get_ccp_version(
         self, major: int = ccp.CCP_VERSION[0], minor: int = ccp.CCP_VERSION[1]
-    ) -> Optional[CommandResponse]:
+    ) -> Optional[DTO]:
         return self._execute(
             ccp.GET_CCP_VERSION,
             major,
             minor,
         )
 
-    def exchange_id(self, info: bytes) -> Optional[CommandResponse]:
+    def exchange_id(self, info: bytes) -> Optional[DTO]:
         if len(info) > 6:
             raise ValueError(f"Maximum 6 bytes allowed, got {len(info)}")
 
@@ -335,7 +313,7 @@ class Master:
 
     def set_mta(
         self, address: int, address_extension: int = 0x00, mta: int = MTA0
-    ) -> Optional[CommandResponse]:
+    ) -> Optional[DTO]:
         address = _pack_address(address)
         _unsigned("Address extension", address_extension, 8)
 
@@ -349,7 +327,7 @@ class Master:
             *address,
         )
 
-    def dnload(self, size: int, data: bytes) -> Optional[CommandResponse]:
+    def dnload(self, size: int, data: bytes) -> Optional[DTO]:
         _transfer_size(size)
         data = _payload(data, size, size)
 
@@ -359,7 +337,7 @@ class Master:
             *data,
         )
 
-    def upload(self, size: int) -> Optional[CommandResponse]:
+    def upload(self, size: int) -> Optional[DTO]:
         _transfer_size(size)
 
         return self._execute(
@@ -367,9 +345,7 @@ class Master:
             size,
         )
 
-    def get_daq_size(
-        self, daq_list_number: int, address: int
-    ) -> Optional[CommandResponse]:
+    def get_daq_size(self, daq_list_number: int, address: int) -> Optional[DTO]:
         address = _pack_address(address)
 
         return self._execute(
@@ -381,7 +357,7 @@ class Master:
 
     def set_daq_ptr(
         self, daq_list_number: int, odt_number: int, element_number: int
-    ) -> Optional[CommandResponse]:
+    ) -> Optional[DTO]:
         return self._execute(
             ccp.SET_DAQ_PTR,
             daq_list_number,
@@ -391,7 +367,7 @@ class Master:
 
     def write_daq(
         self, element_size: int, address_extension: int, address: int
-    ) -> Optional[CommandResponse]:
+    ) -> Optional[DTO]:
         address = _pack_address(address)
         _unsigned("Address extension", address_extension, 8)
         return self._execute(
@@ -408,7 +384,7 @@ class Master:
         last_odt_number: int,
         event_channel: int,
         rate_prescaler: int,
-    ) -> Optional[CommandResponse]:
+    ) -> Optional[DTO]:
         rate_prescaler = struct.pack(
             "<H", _unsigned("Rate prescaler", rate_prescaler, 16)
         )
@@ -424,7 +400,7 @@ class Master:
 
     def disconnect(
         self, disconnect_type: ccp.DisconnectType, address: int
-    ) -> Optional[CommandResponse]:
+    ) -> Optional[DTO]:
         address = struct.pack("<H", _unsigned("Station address", address, 16))
 
         return self._execute(
@@ -435,12 +411,12 @@ class Master:
         )
 
     # Optional Commands.
-    def test(self, station_id: int) -> Optional[CommandResponse]:
+    def test(self, station_id: int) -> Optional[DTO]:
         to_send = struct.pack("<H", _unsigned("Station address", station_id, 16))
 
         return self._execute(ccp.TEST, *to_send)
 
-    def dnload6(self, data: bytes) -> Optional[CommandResponse]:
+    def dnload6(self, data: bytes) -> Optional[DTO]:
         data = _payload(data, 6, 6)
         return self._execute(
             ccp.DNLOAD_6,
@@ -449,7 +425,7 @@ class Master:
 
     def short_up(
         self, size: int, address: int, address_extension: int = 0
-    ) -> Optional[CommandResponse]:
+    ) -> Optional[DTO]:
         _transfer_size(size)
         address = _pack_address(address)
         _unsigned("Address extension", address_extension, 8)
@@ -460,13 +436,13 @@ class Master:
             *address,
         )
 
-    def start_stop_all(self, mode: int) -> Optional[CommandResponse]:
+    def start_stop_all(self, mode: int) -> Optional[DTO]:
         return self._execute(
             ccp.START_STOP_ALL,
             mode,
         )
 
-    def set_s_status(self, status: int) -> Optional[CommandResponse]:
+    def set_s_status(self, status: int) -> Optional[DTO]:
         status = struct.pack("<B", _unsigned("Status", status, 8))
 
         return self._execute(
@@ -474,10 +450,10 @@ class Master:
             *status,
         )
 
-    def get_s_status(self) -> Optional[CommandResponse]:
+    def get_s_status(self) -> Optional[DTO]:
         return self._execute(ccp.GET_S_STATUS)
 
-    def build_chksum(self, block_size: int) -> Optional[CommandResponse]:
+    def build_chksum(self, block_size: int) -> Optional[DTO]:
         block_size = struct.pack("<L", _unsigned("Block size", block_size, 32))
 
         return self._execute(
@@ -485,7 +461,7 @@ class Master:
             *block_size,
         )
 
-    def clear_memory(self, block_size: int) -> Optional[CommandResponse]:
+    def clear_memory(self, block_size: int) -> Optional[DTO]:
         block_size = struct.pack("<L", _unsigned("Block size", block_size, 32))
 
         return self._execute(
@@ -493,7 +469,7 @@ class Master:
             *block_size,
         )
 
-    def program(self, data: bytes) -> Optional[CommandResponse]:
+    def program(self, data: bytes) -> Optional[DTO]:
         """Program 1–5 bytes at MTA0; empty data ends the programming sequence."""
         data = _payload(data, 0, 5)
 
@@ -503,7 +479,7 @@ class Master:
             *data,
         )
 
-    def program6(self, data: bytes) -> Optional[CommandResponse]:
+    def program6(self, data: bytes) -> Optional[DTO]:
         """Program exactly six bytes at MTA0, with no size byte or implicit retries."""
         data = _payload(data, 6, 6)
 
@@ -514,7 +490,7 @@ class Master:
 
     def diag_service(
         self, service_number: int, parameters: bytes = b""
-    ) -> Optional[CommandResponse]:
+    ) -> Optional[DTO]:
         """Run a diagnostic service with up to four-parameter bytes.
 
         Return the raw CRM (or None on timeout). The slave sets MTA0 to the
@@ -531,25 +507,25 @@ class Master:
             *parameters,
         )
 
-    def move(self, size: int) -> Optional[CommandResponse]:
+    def move(self, size: int) -> Optional[DTO]:
         size = struct.pack("<L", _unsigned("Size", size, 32))
 
         return self._execute(ccp.MOVE, *size)
 
-    def get_active_cal_page(self) -> Optional[CommandResponse]:
+    def get_active_cal_page(self) -> Optional[DTO]:
         return self._execute(ccp.GET_ACTIVE_CAL_PAGE)
 
-    def select_cal_page(self) -> Optional[CommandResponse]:
+    def select_cal_page(self) -> Optional[DTO]:
         return self._execute(ccp.SELECT_CAL_PAGE)
 
-    def unlock(self, key: bytes) -> Optional[CommandResponse]:
+    def unlock(self, key: bytes) -> Optional[DTO]:
         key = _payload(key, 0, 6)
         return self._execute(
             ccp.UNLOCK,
             *key,
         )
 
-    def get_seed(self, resource: SecondaryResource) -> Optional[CommandResponse]:
+    def get_seed(self, resource: SecondaryResource) -> Optional[DTO]:
         return self._execute(
             ccp.GET_SEED,
             resource,
