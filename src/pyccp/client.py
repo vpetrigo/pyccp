@@ -46,6 +46,7 @@ from .ccp import (
 )
 
 _SUPPORTED_COMMAND = (
+    # Mandatory Commands
     CONNECT,
     GET_CCP_VERSION,
     EXCHANGE_ID,
@@ -149,8 +150,8 @@ class Client:
         self._dto = dto
         self._station_id = station_id
         self._receiver = None
-        self._dto_sender = None
-        self._daq_sender = None
+        self._dto_sender: Optional[Client._DTOSender] = None
+        self._daq_sender: Optional[Client._DAQSender] = None
         self._send_lock = Lock()
         self._handlers_lock = Lock()
         self._handlers: dict[int, Optional[MessageCallback]] = {
@@ -226,7 +227,8 @@ class Client:
             if handler is not None:
                 dto = handler(cro)
 
-        self._dto_sender.send(dto)
+        if self._dto_sender is not None:
+            self._dto_sender.send_dto(dto)
 
     def register_handler(self, command_code: int, handler: MessageCallback) -> None:
         """Register a handler for a specific command code."""
