@@ -2,6 +2,7 @@
 [![PyPI - Version](https://img.shields.io/pypi/v/pyccp)](https://pypi.org/project/pyccp)
 ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/pyccp)
 [![PyPI Downloads](https://static.pepy.tech/personalized-badge/pyccp?period=monthly&units=INTERNATIONAL_SYSTEM&left_color=GREY&right_color=GREEN&left_text=downloads%2Fmonth)](https://pepy.tech/projects/pyccp)
+[![codecov](https://codecov.io/gh/vpetrigo/pyccp/graph/badge.svg?token=v2zJMgyOjB)](https://codecov.io/gh/vpetrigo/pyccp)
 
 # CAN Calibration Protocol for Python
 
