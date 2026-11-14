@@ -8,6 +8,10 @@ __pycache__/
 *$py.class
 requirements.*
 
+# Coverage
+.coverage
+coverage.xml
+
 # C extensions
 *.so
 
