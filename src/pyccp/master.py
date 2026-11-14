@@ -16,7 +16,7 @@ import can
 from can import Message
 
 from . import ccp
-from .ccp import DTO, DAQMessage, ReturnCodes, SecondaryResource
+from .ccp import DTO, DAQMessage, SecondaryResource
 
 MTA0 = 0
 MTA1 = 1
