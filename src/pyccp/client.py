@@ -7,7 +7,7 @@ from collections.abc import Callable
 from queue import Queue
 from threading import Event, Lock, Thread
 from types import TracebackType
-from typing import Optional
+from typing import Optional, Union
 
 import can
 
@@ -83,6 +83,9 @@ MessageCallback = Callable[[CRO], DTO]
 
 
 class Client:
+    class _Sentinel:
+        pass
+
     class _Receiver(Thread):
         def __init__(self, client: "Client") -> None:
             super().__init__()
@@ -104,29 +107,30 @@ class Client:
         def __init__(self, client: "Client") -> None:
             super().__init__()
             self._client = client
-            self._stop_event = Event()
-            self._queue = Queue()
+            self._queue: Queue[Union[can.Message, Client._Sentinel]] = Queue()
 
         def run(self) -> None:
-            while not self._stop_event.is_set():
+            while True:
                 try:
-                    can_msg: Optional[can.Message] = self._queue.get(timeout=0.1)
+                    msg = self._queue.get(timeout=0.1)
                 except queue.Empty:
                     continue
-                except queue.ShutDown:
+
+                if isinstance(msg, Client._Sentinel):
+                    self._queue.task_done()
                     break
 
-                if can_msg is not None:
-                    try:
-                        self._client._send(can_msg)
-                    except can.exceptions.CanError:
-                        pass
+                can_msg: can.Message = msg
+
+                try:
+                    self._client._send(can_msg)
+                except can.exceptions.CanError:
+                    pass
 
                 self._queue.task_done()
 
         def stop(self) -> None:
-            self._stop_event.set()
-            self._queue.shutdown(immediate=True)
+            self._queue.put(Client._Sentinel())
             self._queue.join()
             self.join()
 
