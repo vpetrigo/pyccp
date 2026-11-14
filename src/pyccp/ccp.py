@@ -3,6 +3,9 @@
 
 import dataclasses
 import enum
+from typing import Optional
+
+from can import Message
 
 MAX_CRO = 0x0008
 MAX_DTO = 0x0008
@@ -103,10 +106,79 @@ class SecondaryResource(enum.IntEnum):
     PGM = 1 << 6
 
 
+class CRO:
+    __slots__ = ("code", "ctr", "data")
+
+    def __init__(self, data: bytes) -> None:
+        if len(data) != 8:
+            raise ValueError("CRO data must be exactly 8 bytes long.")
+
+        self.code = data[0]
+        self.ctr = data[1]
+        self.data = data[2:]
+
+
 class DTO:
     class Type(enum.IntEnum):
         COMMAND_RETURN_MESSAGE = 255
         EVENT_MESSAGE = 254
+
+    __slots__ = ("pid", "ctr", "code", "data")
+
+    def __init__(
+        self, pid: int, ctr: int, ret_code: ReturnCodes, raw_data: bytes
+    ) -> None:
+        if len(raw_data) != 5:
+            raise ValueError("DTO data must be exactly 5 bytes long.")
+
+        self.pid = self.Type(pid)
+        self.ctr = ctr
+        self.code = ret_code
+        self.data = raw_data
+
+    @classmethod
+    def dto(cls, ctr: int, ret_code: ReturnCodes, data: Optional[bytes]) -> "DTO":
+        pid = DTO.Type.COMMAND_RETURN_MESSAGE
+
+        if data is None:
+            data = bytes(5)
+        else:
+            data = data.ljust(5, b"\x00")
+
+        return cls(pid, ctr, ret_code, data)
+
+    @classmethod
+    def event(cls, ret_code: ReturnCodes, data: Optional[bytes]) -> "DTO":
+        pid = DTO.Type.EVENT_MESSAGE
+        ctr = 0x00
+
+        if data is None:
+            data = bytes(8)
+        else:
+            data = data.ljust(8, b"\x00")
+
+        return cls(pid, ctr, ret_code, data)
+
+    @classmethod
+    def from_response(cls, raw_data: bytes) -> "DTO":
+        if len(raw_data) != 8:
+            raise ValueError("DTO data must be exactly 8 bytes long.")
+
+        ret_code = ReturnCodes(raw_data[1])
+        ctr = raw_data[2]
+        return cls(raw_data[0], ctr, ret_code, raw_data[3:])
+
+    def bytes(self) -> bytes:
+        return bytes([self.pid, self.code, self.ctr, *self.data])
+
+
+class DAQMessage:
+    __slots__ = ("daq_id", "pid", "data")
+
+    def __init__(self, message: Message):
+        self.daq_id = message.arbitration_id
+        self.pid = message.data[0]
+        self.data = message.data[1:]
 
 
 def verify_ctr(ctr: int, response: bytes) -> bool:
