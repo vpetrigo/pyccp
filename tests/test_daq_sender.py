@@ -20,8 +20,7 @@ from typing import Optional
 import can
 from can import Message
 
-from pyccp import ccp
-from pyccp.ccp import CRO, DTO, DAQMessage, ReturnCodes
+from pyccp.ccp import DAQMessage, ReturnCodes
 
 # ---------------------------------------------------------------------------
 # Constants
