@@ -9,6 +9,7 @@ import can
 import pytest
 from can import Message
 
+from pyccp.ccp import DTO, ReturnCodes
 from pyccp.master import Master
 
 # ---------------------------------------------------------------------------
@@ -16,17 +17,16 @@ from pyccp.master import Master
 # ---------------------------------------------------------------------------
 
 
-CRO = 0x7E1
-DTO = 0x815
+_CRO = 0x7E1
+_DTO = 0x815
 
 
 def make_crm(
-    ctr: int, code: int = 0x00, tail: bytes = b"", can_id: int = DTO
+    ctr: int, code: int = 0x00, tail: bytes = b"", can_id: int = _DTO
 ) -> Message:
     """Build a Command Return Message."""
-    data = bytes([0xFF, code, ctr]) + bytes(tail)
-    data = data.ljust(8, b"\x00")
-    return Message(arbitration_id=can_id, data=data)
+    dto = DTO.dto(ctr, ReturnCodes(code), tail)
+    return Message(arbitration_id=can_id, data=dto.bytes())
 
 
 class SlaveResponder(threading.Thread):
@@ -111,7 +111,7 @@ def slave(_channel) -> Generator[SlaveResponder, None, None]:
     """
     ch = _channel
     slave_bus = can.interface.Bus(ch, interface="virtual")
-    responder = SlaveResponder(slave_bus, CRO, DTO, None)
+    responder = SlaveResponder(slave_bus, _CRO, _DTO, None)
     responder.start()
     yield responder
     responder.stop()
@@ -126,5 +126,5 @@ def master(_channel) -> Generator[Master, None, None]:
     ch = _channel
     master_bus = can.interface.Bus(ch, interface="virtual")
 
-    with Master(master_bus, CRO, DTO) as m:
+    with Master(master_bus, _CRO, _DTO) as m:
         yield m
