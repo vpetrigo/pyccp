@@ -27,6 +27,9 @@ dependencies = [
     "python-can >=4,<5"
 ]
 
+[tool.coverage.report]
+omit = ["tests/*"]
+
 [tool.hatch.envs.hatch-test]
 default-args = ["tests"]
 

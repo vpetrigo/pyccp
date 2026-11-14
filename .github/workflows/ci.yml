@@ -79,7 +79,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@v10.3.0
+        uses: astral-sh/setup-uv@v10.3.3
         with:
           enable-cache: true
 
@@ -87,4 +87,9 @@ jobs:
         run: uv tool install hatch --with hatch-pip-compile
 
       - name: Run tests
-        run: hatch test -py=${{ matrix.python-version }}
+        run: hatch test --cover-xml -py=${{ matrix.python-version }}
+
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
