@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+import logging
 import queue
 import time
 from collections.abc import Callable
@@ -148,6 +149,7 @@ class Client:
             self._queue.put(message)
 
     def __init__(self, bus: can.BusABC, cro: int, dto: int, station_id: int) -> None:
+        self.logger = logging.getLogger(__name__)
         self._bus = bus
         self._cro = cro
         self._dto = dto
@@ -217,13 +219,15 @@ class Client:
             return
 
         if message.dlc != 8:
-            raise RuntimeError("Invalid message length")
+            self.logger.warning("Invalid message length")
+            return
 
         cro = CRO(message.data)
 
         with self._handlers_lock:
             if cro.code not in self._handlers:
-                raise RuntimeError(f"Invalid CRO: 0x{cro.code:04X}")
+                self.logger.warning(f"Invalid CRO: 0x{cro.code:04X}")
+                return
 
             handler = self._handlers.get(cro.code)
 
@@ -237,6 +241,7 @@ class Client:
         """Register a handler for a specific command code."""
         with self._handlers_lock:
             if command_code not in self._handlers:
-                raise ValueError(f"Invalid command code: 0x{command_code:04X}")
+                self.logger.warning(f"Invalid command code: 0x{command_code:04X}")
+                return
 
             self._handlers[command_code] = handler
