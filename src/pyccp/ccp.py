@@ -180,6 +180,9 @@ class DAQMessage:
         self.pid = message.data[0]
         self.data = message.data[1:]
 
+    def bytes(self) -> bytes:
+        return bytes([self.pid, *self.data])
+
 
 def verify_ctr(ctr: int, response: bytes) -> bool:
     if len(response) < 3:
